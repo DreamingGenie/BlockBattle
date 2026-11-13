@@ -1,5 +1,6 @@
 package com.blockbattle.room;
 
+import com.blockbattle.battle.LockService;
 import java.security.Principal;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -14,9 +15,17 @@ public class RoomMessageController {
     }
 
     private final ReadyService ready;
+    private final LockService locks;
 
-    public RoomMessageController(ReadyService ready) {
+    public RoomMessageController(ReadyService ready, LockService locks) {
         this.ready = ready;
+        this.locks = locks;
+    }
+
+    /** 5.2 SEND /app/rooms/{code}/lock — 서버 검증·재계산 뒤 BOARD·ATTACK 방송(BR-05) */
+    @MessageMapping("/rooms/{code}/lock")
+    public void lock(@DestinationVariable String code, @Payload LockService.LockMessage message, Principal user) {
+        locks.handle(code, Long.parseLong(user.getName()), message);
     }
 
     /** 5.1 SEND /app/rooms/{code}/ready — payload {"ready": true} */

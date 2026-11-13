@@ -1,0 +1,163 @@
+package com.blockbattle.battle;
+
+import com.blockbattle.engine.Board;
+import com.blockbattle.engine.GarbageBundle;
+import com.blockbattle.engine.LockRules;
+import com.blockbattle.engine.Piece;
+import com.blockbattle.engine.PieceSequence;
+import com.blockbattle.engine.Placement;
+import com.blockbattle.realtime.RoomEventPublisher;
+import com.blockbattle.store.redis.RoomStateStore;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+/**
+ * 친구 대전 lock 검증·재계산(BR-05, POL-005, REQ-012).
+ * ① seq = 직전 + 1(같으면 무시, 건너뛰면 INVALID_LOCK) ② 시드 순서·홀드로 나올 수 있는 블록 ③ 서버 보드에서 겹치지 않고 바로 아래가 막힘.
+ * 서버가 GR-05~GR-08로 다시 계산하고, 어긋나거나 지운 줄 수가 다르면 INVALID_LOCK과 서버 보드를 보낸다. 경로는 검사하지 않는다.
+ */
+@Service
+public class LockService {
+
+    public record LockMessage(Integer seq, String piece, Integer rotation, Integer x, Integer y, Boolean holdUsed,
+                              String lastMove, Integer linesCleared) {
+    }
+
+    private final RoomStateStore rooms;
+    private final PlayerStateRepository states;
+    private final RoomEventPublisher events;
+    private final SimpMessagingTemplate messaging;
+    private final JdbcTemplate jdbc;
+    private final SecureRandom random = new SecureRandom();
+    private final Map<Long, Object> matchLocks = new ConcurrentHashMap<>();
+    private final Map<Long, Long> seeds = new ConcurrentHashMap<>();
+
+    public LockService(RoomStateStore rooms, PlayerStateRepository states, RoomEventPublisher events,
+                       SimpMessagingTemplate messaging, JdbcTemplate jdbc) {
+        this.rooms = rooms;
+        this.states = states;
+        this.events = events;
+        this.messaging = messaging;
+        this.jdbc = jdbc;
+    }
+
+    public void handle(String code, long userId, LockMessage msg) {
+        Map<String, String> room = rooms.getRoom(code);
+        String current = room.get("currentMatchId");
+        if (!"PLAYING".equals(room.get("status")) || current == null || current.isBlank()) return;
+        long matchId = Long.parseLong(current);
+        long opponentId = rooms.getPlayers(code).keySet().stream().filter(id -> id != userId).findFirst().orElse(-1L);
+
+        // 같은 경기의 lock과 공격 반영은 순서대로(단일 서버 기준, T-12 계획 unlinked)
+        synchronized (matchLocks.computeIfAbsent(matchId, id -> new Object())) {
+            PlayerState me = states.load(matchId, userId);
+            if (msg == null || msg.seq() == null) return;
+            if (msg.seq() == me.seq()) return; // 같은 seq는 무시
+            Outcome outcome = evaluate(matchId, me, msg);
+            if (outcome == null) {
+                rejectLock(userId, msg.seq(), me);
+                return;
+            }
+            states.save(matchId, userId, outcome.state());
+            rooms.touch(code); // lock은 활동이다(POL-024)
+
+            Map<String, Object> board = new LinkedHashMap<>();
+            board.put("userId", userId);
+            board.put("seq", outcome.state().seq());
+            board.put("board", outcome.state().board().toString());
+            board.put("score", outcome.state().score());
+            board.put("linesCleared", outcome.state().linesCleared());
+            board.put("level", outcome.state().level());
+            board.put("combo", outcome.state().combo());
+            board.put("b2b", outcome.state().b2b());
+            board.put("pendingGarbage", outcome.state().pendingLines());
+            events.publish(code, "BOARD", board);
+
+            int sent = outcome.result().sent();
+            if (sent > 0 && opponentId > 0) {
+                int hole = random.nextInt(Board.WIDTH); // 묶음마다 구멍 열을 서버가 무작위로(GR-08)
+                PlayerState opp = states.load(matchId, opponentId);
+                List<GarbageBundle> pending = new ArrayList<>(opp.pending());
+                pending.add(new GarbageBundle(sent, hole));
+                states.save(matchId, opponentId, new PlayerState(opp.board(), opp.seq(), opp.pieceIndex(), opp.hold(),
+                        opp.holdUsed(), List.copyOf(pending), opp.combo(), opp.b2b(), opp.score(), opp.linesCleared(),
+                        opp.level(), opp.piecesPlaced(), opp.attackSent(), opp.attackReceived() + sent, opp.maxCombo(),
+                        opp.topoutAt()));
+                events.publish(code, "ATTACK", Map.of("fromUserId", userId, "toUserId", opponentId, "lines", sent, "holeColumn", hole));
+            }
+        }
+    }
+
+    private record Outcome(PlayerState state, LockRules.Result result) {
+    }
+
+    /** 검사를 모두 통과하면 다음 상태, 하나라도 어긋나면 null */
+    private Outcome evaluate(long matchId, PlayerState me, LockMessage msg) {
+        if (msg.seq() != me.seq() + 1) return null;
+        Piece piece;
+        int rotation;
+        try {
+            piece = Piece.valueOf(msg.piece());
+            rotation = msg.rotation();
+        } catch (RuntimeException e) {
+            return null;
+        }
+        if (rotation < 0 || rotation > 3 || msg.x() == null || msg.y() == null || msg.linesCleared() == null) return null;
+
+        // ② 시드 순서·홀드 상태로 나올 수 있는 블록인지
+        PieceSequence sequence = new PieceSequence(seedOf(matchId));
+        boolean usedHold = Boolean.TRUE.equals(msg.holdUsed());
+        Piece expected;
+        Piece nextHold;
+        int nextIndex;
+        if (!usedHold) {
+            expected = sequence.at(me.pieceIndex());
+            nextHold = me.hold();
+            nextIndex = me.pieceIndex() + 1;
+        } else if (me.hold() == null) {
+            expected = sequence.at(me.pieceIndex() + 1);
+            nextHold = sequence.at(me.pieceIndex());
+            nextIndex = me.pieceIndex() + 2;
+        } else {
+            expected = me.hold();
+            nextHold = sequence.at(me.pieceIndex());
+            nextIndex = me.pieceIndex() + 1;
+        }
+        if (piece != expected) return null;
+
+        // ③ 서버 보드에서 겹치지 않고 바로 아래가 막혔는지
+        Placement placement = new Placement(piece, rotation, msg.x(), msg.y());
+        if (!me.board().fits(placement) || !me.board().isGrounded(placement)) return null;
+
+        LockRules.Result r = LockRules.resolve(
+                new LockRules.State(me.board(), me.linesCleared(), me.combo(), me.b2b(), me.pending()),
+                placement, "ROTATE".equals(msg.lastMove()));
+        if (r.linesCleared() != msg.linesCleared()) return null;
+
+        LockRules.State n = r.next();
+        PlayerState next = new PlayerState(n.board(), msg.seq(), nextIndex, nextHold, false, n.pending(), n.combo(), n.b2b(),
+                me.score() + r.score(), n.linesTotal(), LockRules.levelForLines(n.linesTotal()), me.piecesPlaced() + 1,
+                me.attackSent() + r.sent(), me.attackReceived(), Math.max(me.maxCombo(), n.combo()), me.topoutAt());
+        return new Outcome(next, r);
+    }
+
+    /** API 명세 5.6: 보낸 사람에게만. 클라이언트는 서버 보드로 바꾸고 nextSeq부터 다시 보낸다 */
+    private void rejectLock(long userId, int seq, PlayerState me) {
+        messaging.convertAndSendToUser(Long.toString(userId), "/queue/errors", Map.of(
+                "code", "INVALID_LOCK",
+                "message", "서버 보드와 맞지 않습니다.",
+                "payload", Map.of("seq", seq, "board", me.board().toString(), "nextSeq", me.seq() + 1)));
+    }
+
+    private long seedOf(long matchId) {
+        return seeds.computeIfAbsent(matchId,
+                id -> jdbc.queryForObject("SELECT seed FROM matches WHERE id = ?", Long.class, id));
+    }
+}
