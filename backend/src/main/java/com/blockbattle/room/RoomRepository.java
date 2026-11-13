@@ -28,6 +28,11 @@ public class RoomRepository {
                 reason, Timestamp.from(now), roomId) == 1;
     }
 
+    /** BR-01 상태 전이 이력(WAITING→PLAYING 등). 닫힌 방은 바꾸지 않는다 */
+    public void updateStatus(long roomId, String status) {
+        jdbc.update("UPDATE game_rooms SET status = ? WHERE id = ? AND status <> 'CLOSED'", status, roomId);
+    }
+
     public java.util.List<OpenRoom> findOpen() {
         return jdbc.query("SELECT id, room_code FROM game_rooms WHERE status <> 'CLOSED'",
                 (rs, i) -> new OpenRoom(rs.getLong(1), rs.getString(2)));

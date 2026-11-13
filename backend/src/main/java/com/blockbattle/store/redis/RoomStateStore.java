@@ -42,6 +42,20 @@ public class RoomStateStore {
             return 1
             """, Long.class);
 
+    private static final RedisScript<Long> CAS_STATUS = RedisScript.of("""
+            if redis.call('HGET', KEYS[1], 'status') == ARGV[1] then
+              redis.call('HSET', KEYS[1], 'status', ARGV[2])
+              return 1
+            end
+            return 0
+            """, Long.class);
+
+    /** 방 상태를 expected일 때만 next로 바꾼다. 동시에 여러 번 불려도 한 번만 성공한다 */
+    public boolean compareAndSetStatus(String code, String expected, String next) {
+        Long changed = redis.execute(CAS_STATUS, List.of(RedisKeys.room(code)), expected, next);
+        return changed != null && changed == 1L;
+    }
+
     /** 방 코드 선점: 활성 방(room:{code} 키가 있는 방)끼리 코드가 겹치지 않게 한다. 선점했으면 true */
     public boolean reserveRoom(String code, long hostId) {
         boolean reserved = Boolean.TRUE.equals(

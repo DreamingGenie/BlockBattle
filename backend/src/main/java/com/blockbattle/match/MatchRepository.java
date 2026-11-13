@@ -42,6 +42,24 @@ public class MatchRepository {
         return Objects.requireNonNull(keys.getKey()).longValue();
     }
 
+    /** 친구 대전 경기 행(BR-02: COUNTDOWN 때 PLAYING으로). started_at은 COUNTDOWN의 startsAt이다 */
+    public long insertFriendMatch(long roomId, int seriesNo, int roundNo, int attemptNo, long seed, Instant startsAt) {
+        var keys = new GeneratedKeyHolder();
+        jdbc.update(con -> {
+            PreparedStatement ps = con.prepareStatement("""
+                    INSERT INTO matches (mode, room_id, series_no, round_no, attempt_no, seed, status, started_at)
+                    VALUES ('FRIEND', ?, ?, ?, ?, ?, 'PLAYING', ?)""", Statement.RETURN_GENERATED_KEYS);
+            ps.setLong(1, roomId);
+            ps.setInt(2, seriesNo);
+            ps.setInt(3, roundNo);
+            ps.setInt(4, attemptNo);
+            ps.setLong(5, seed);
+            ps.setTimestamp(6, Timestamp.from(startsAt));
+            return ps;
+        }, keys);
+        return Objects.requireNonNull(keys.getKey()).longValue();
+    }
+
     /** 참가자 행은 경기 행과 함께 성적 0, result NONE으로 만든다(ENT-005) */
     public void insertPlayer(long matchId, int slot, Long userId, String playerType) {
         jdbc.update("INSERT INTO match_players (match_id, slot, user_id, player_type, result) VALUES (?, ?, ?, ?, 'NONE')",

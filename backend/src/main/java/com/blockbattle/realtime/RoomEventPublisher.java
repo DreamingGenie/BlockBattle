@@ -20,6 +20,11 @@ public class RoomEventPublisher {
     }
 
     public void publish(String roomCode, String type, Object payload) {
-        messaging.convertAndSend("/topic/rooms/" + roomCode, new WsMessage(type, roomCode, clock.millis(), payload));
+        publishAt(roomCode, type, payload, clock.millis());
+    }
+
+    /** sentAt을 정해 보낸다(COUNTDOWN의 startsAt = sentAt + 3,000ms처럼 payload가 전송 시각에 묶일 때) */
+    public void publishAt(String roomCode, String type, Object payload, long sentAt) {
+        messaging.convertAndSend("/topic/rooms/" + roomCode, new WsMessage(type, roomCode, sentAt, payload));
     }
 }
