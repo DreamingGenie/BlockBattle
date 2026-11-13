@@ -7,3 +7,5 @@ backend/.gradle/
 ai/.venv/
 __pycache__/
 .pytest_cache/
+loadtest/results-main.log
+loadtest/results/*/backend.log

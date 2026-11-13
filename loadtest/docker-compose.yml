@@ -1,0 +1,67 @@
+# 부하 시험 환경(T-17). 백엔드는 2 vCPU·4GB 서버를 흉내 내려고 cpus 2·memory 4g로 제한한다(로컬 근사 측정).
+# 포트를 호스트에 열지 않아 개발용 infra/docker-compose.yml(3306·6379)과 부딪히지 않는다.
+name: blockbattle-loadtest
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: lt-mysql
+    environment:
+      MYSQL_DATABASE: block_battle
+      MYSQL_USER: block_battle
+      MYSQL_PASSWORD: block_battle
+      MYSQL_ROOT_PASSWORD: block_battle_root
+      TZ: UTC
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 3s
+      retries: 40
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: lt-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 40
+
+  backend:
+    image: eclipse-temurin:21-jre
+    container_name: lt-backend
+    command: ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+    volumes:
+      - ../backend/build/libs/block-battle-backend-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/block_battle?serverTimezone=UTC&characterEncoding=UTF-8
+      DB_USERNAME: block_battle
+      DB_PASSWORD: block_battle
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    cpus: 2
+    mem_limit: 4g
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/8080"]
+      interval: 3s
+      retries: 60
+
+  k6:
+    image: grafana/k6:1.3.0
+    container_name: lt-k6
+    profiles: ["run"]
+    working_dir: /loadtest
+    volumes:
+      - ./:/loadtest
+    environment:
+      BASE_URL: http://backend:8080
+      K6_NO_USAGE_REPORT: "true"
+    depends_on:
+      backend:
+        condition: service_healthy
