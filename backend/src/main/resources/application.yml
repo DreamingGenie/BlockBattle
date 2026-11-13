@@ -14,6 +14,8 @@ spring:
       port: ${REDIS_PORT:6379}
 
 app:
+  # 초대 URL 등 사용자에게 보이는 주소의 기준
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:5173}
   jwt:
     # HS256 비밀 키(32바이트 이상). 운영은 JWT_SECRET 환경 변수로 넣고, AI 서버도 같은 값을 쓴다.
     secret: ${JWT_SECRET:local-dev-only-secret-change-me-0123456789abcdef}

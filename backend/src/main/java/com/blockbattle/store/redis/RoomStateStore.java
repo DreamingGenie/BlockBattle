@@ -3,9 +3,11 @@ package com.blockbattle.store.redis;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
 /**
@@ -28,6 +30,37 @@ public class RoomStateStore {
     public RoomStateStore(StringRedisTemplate redis, ObjectMapper json) {
         this.redis = redis;
         this.json = json;
+    }
+
+    /** 결과: 1 입장, 0 이미 참가자, -1 방 없음, -2 WAITING 아님, -3 정원 초과 */
+    private static final RedisScript<Long> JOIN = RedisScript.of("""
+            if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
+            if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 1 then return 0 end
+            if redis.call('HGET', KEYS[1], 'status') ~= 'WAITING' then return -2 end
+            if redis.call('HLEN', KEYS[2]) >= tonumber(ARGV[3]) then return -3 end
+            redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
+            return 1
+            """, Long.class);
+
+    /** 방 코드 선점: 활성 방(room:{code} 키가 있는 방)끼리 코드가 겹치지 않게 한다. 선점했으면 true */
+    public boolean reserveRoom(String code, long hostId) {
+        boolean reserved = Boolean.TRUE.equals(
+                redis.opsForHash().putIfAbsent(RedisKeys.room(code), "hostId", Long.toString(hostId)));
+        if (reserved) redis.expire(RedisKeys.room(code), RedisKeys.ROOM_TTL);
+        return reserved;
+    }
+
+    /** 정원·상태 검사와 참가자 추가를 한 번에(Lua) */
+    public long joinAtomically(String code, long userId, RoomPlayer player, int capacity) {
+        Long result = redis.execute(JOIN, List.of(RedisKeys.room(code), RedisKeys.roomPlayers(code)),
+                Long.toString(userId), write(player), Integer.toString(capacity));
+        return result == null ? -1 : result;
+    }
+
+    /** 방 키의 남은 TTL(초). 키가 없으면 -2 */
+    public long ttlSeconds(String code) {
+        Long ttl = redis.getExpire(RedisKeys.room(code));
+        return ttl == null ? -2 : ttl;
     }
 
     public void putRoomFields(String code, Map<String, String> fields) {

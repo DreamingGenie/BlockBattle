@@ -57,6 +57,10 @@ public class UserRepository {
                 rs.getString("provider"));
     }
 
+    public Optional<UserRow> findById(long userId) {
+        return jdbc.query(USER_COLUMNS + "WHERE id = ?", (rs, i) -> map(rs), userId).stream().findFirst();
+    }
+
     /** 트랜잭션 안에서 행을 잠근다(SELECT … FOR UPDATE) */
     public Optional<UserRow> findForUpdate(long userId) {
         return jdbc.query(USER_COLUMNS + "WHERE id = ? FOR UPDATE", (rs, i) -> map(rs), userId).stream().findFirst();
