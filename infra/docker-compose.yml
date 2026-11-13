@@ -9,7 +9,7 @@ services:
       TZ: UTC
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"  # 로컬에 MySQL이 이미 있으면 MYSQL_PORT=3307 처럼 바꾼다
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
