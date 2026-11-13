@@ -126,6 +126,8 @@ public class RoomService {
         String currentMatch = room.get("currentMatchId");
         if ("PLAYING".equals(room.get("status")) && currentMatch != null && !currentMatch.isBlank()) {
             leaveHook.onLeaveDuringMatch(code, Long.parseLong(currentMatch), userId);
+        } else if ("PLAYING".equals(room.get("status"))) {
+            leaveHook.onLeaveBetweenRounds(code, userId);
         }
         long roomId = Long.parseLong(room.get("roomId"));
         boolean host = Long.toString(userId).equals(room.get("hostId"));

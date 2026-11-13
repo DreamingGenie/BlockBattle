@@ -16,10 +16,22 @@ public class RoomMessageController {
 
     private final ReadyService ready;
     private final LockService locks;
+    private final RematchService rematch;
 
-    public RoomMessageController(ReadyService ready, LockService locks) {
+    public RoomMessageController(ReadyService ready, LockService locks, RematchService rematch) {
         this.ready = ready;
         this.locks = locks;
+        this.rematch = rematch;
+    }
+
+    public record RematchRequest(Boolean accept) {
+    }
+
+    /** 5.4 SEND /app/rooms/{code}/rematch — payload {"accept": true} (T-14) */
+    @MessageMapping("/rooms/{code}/rematch")
+    public void rematch(@DestinationVariable String code, @Payload RematchRequest request, Principal user) {
+        if (request == null || request.accept() == null) return;
+        rematch.respond(code, Long.parseLong(user.getName()), request.accept());
     }
 
     /** 5.2 SEND /app/rooms/{code}/lock — 서버 검증·재계산 뒤 BOARD·ATTACK 방송(BR-05) */

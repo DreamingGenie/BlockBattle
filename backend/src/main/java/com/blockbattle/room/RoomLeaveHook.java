@@ -7,4 +7,8 @@ package com.blockbattle.room;
 public interface RoomLeaveHook {
 
     void onLeaveDuringMatch(String roomCode, long matchId, long userId);
+
+    /** 시리즈 라운드 사이(방 PLAYING, 진행 경기 없음)에 나갈 때. 남은 쪽이 시리즈 승자다(BR-03, T-14) */
+    default void onLeaveBetweenRounds(String roomCode, long userId) {
+    }
 }

@@ -118,6 +118,17 @@ public class MatchRepository {
                 status, endReason, winnerUserId, seriesWinnerUserId, Timestamp.from(endedAt), durationMs, matchId) == 1;
     }
 
+    /** 라운드 사이에 시리즈가 끝날 때 그 시리즈 마지막 경기 행(FINISHED 우선, 없으면 가장 최근)을 찾는다(ERD 4장) */
+    public Optional<Long> findLastSeriesMatch(long roomId, int seriesNo) {
+        return jdbc.queryForList("""
+                SELECT id FROM matches WHERE room_id = ? AND series_no = ? AND status <> 'PLAYING'
+                ORDER BY (status = 'FINISHED') DESC, id DESC LIMIT 1""", Long.class, roomId, seriesNo).stream().findFirst();
+    }
+
+    public void setSeriesWinner(long matchId, long userId) {
+        jdbc.update("UPDATE matches SET series_winner_user_id = ? WHERE id = ?", userId, matchId);
+    }
+
     /** BR-02: 결과가 저장되지 않은 SOLO·AI 경기를 시작 2시간 뒤 ABORTED(EXPIRED)로 닫는다 */
     public int expireUnsaved(Instant startedBefore, Instant now) {
         return jdbc.update("""
