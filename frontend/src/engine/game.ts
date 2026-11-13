@@ -113,6 +113,17 @@ export class Game {
     return this.rotate('CCW');
   }
 
+  /** 소프트 드롭 한 칸(AI 입력 재생용, GR-07 칸당 1점). 내려갔으면 true */
+  softDropStep(): boolean {
+    if (!this.current || this.gameOver) return false;
+    const moved = { ...this.current, y: this.current.y + 1 };
+    if (!fits(this.board, moved)) return false;
+    this.current = moved;
+    this.lastAction = 'move';
+    this.softCells++;
+    return true;
+  }
+
   setSoftDrop(on: boolean): void {
     this.softDropping = on;
     this.gravityElapsed = 0;
