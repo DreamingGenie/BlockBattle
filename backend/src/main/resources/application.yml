@@ -12,3 +12,9 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+
+app:
+  jwt:
+    # HS256 비밀 키(32바이트 이상). 운영은 JWT_SECRET 환경 변수로 넣고, AI 서버도 같은 값을 쓴다.
+    secret: ${JWT_SECRET:local-dev-only-secret-change-me-0123456789abcdef}
+    access-ttl: 1h
