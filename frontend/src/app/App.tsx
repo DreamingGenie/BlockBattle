@@ -1,12 +1,14 @@
 import { useEffect, type ReactElement } from 'react';
 import { LobbyScreen } from '../screens/LobbyScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { SoloScreen } from '../screens/SoloScreen';
 import { navigate, useRoute, type Route } from './router';
 import { SessionProvider, useSession } from './session';
 
 /** 화면 이름 → 화면. 게임·기록 화면은 T-19~T-22에서 채운다 */
 const screens: Partial<Record<Route['name'], (route: Route) => ReactElement>> = {
   lobby: () => <LobbyScreen />,
+  solo: () => <SoloScreen />,
 };
 
 function Routed() {
