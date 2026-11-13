@@ -73,6 +73,27 @@ public class UserRepository {
                 provider, providerId, userId);
     }
 
+    /** BR-09 싱글: 판 수 + 1 */
+    public void incrementSoloGames(long userId, Instant now) {
+        jdbc.update("UPDATE user_stats SET solo_games = solo_games + 1, updated_at = ? WHERE user_id = ?",
+                Timestamp.from(now), userId);
+    }
+
+    /** BR-09 싱글: 기존 최고 점수를 넘을 때만 점수·달성 시각을 바꾼다. 바꿨으면 true */
+    public boolean raiseSoloBest(long userId, int score, Instant now) {
+        return jdbc.update("""
+                UPDATE user_stats SET solo_best_score = ?, solo_best_achieved_at = ?, updated_at = ?
+                WHERE user_id = ? AND solo_best_score < ?""",
+                score, Timestamp.from(now), Timestamp.from(now), userId, score) == 1;
+    }
+
+    /** BR-09 AI: 승이면 ai_wins, 패면 ai_losses + 1 */
+    public void recordAiResult(long userId, boolean win, Instant now) {
+        String column = win ? "ai_wins" : "ai_losses";
+        jdbc.update("UPDATE user_stats SET " + column + " = " + column + " + 1, updated_at = ? WHERE user_id = ?",
+                Timestamp.from(now), userId);
+    }
+
     public void touchLastLogin(long userId, Instant now) {
         jdbc.update("UPDATE users SET last_login_at = ? WHERE id = ?", Timestamp.from(now), userId);
     }
