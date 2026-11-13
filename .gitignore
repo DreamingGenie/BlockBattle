@@ -4,3 +4,6 @@ dist/
 .claude/settings.local.json
 backend/build/
 backend/.gradle/
+ai/.venv/
+__pycache__/
+.pytest_cache/
