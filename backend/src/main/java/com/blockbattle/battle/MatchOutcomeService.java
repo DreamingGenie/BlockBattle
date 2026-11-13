@@ -1,5 +1,6 @@
 package com.blockbattle.battle;
 
+import com.blockbattle.match.Apm;
 import com.blockbattle.match.MatchRepository;
 import com.blockbattle.match.MatchRepository.PlayerStats;
 import com.blockbattle.realtime.RoomEventPublisher;
@@ -140,7 +141,7 @@ public class MatchOutcomeService {
             row.put("attackSent", s.attackSent());
             row.put("attackReceived", s.attackReceived());
             row.put("maxCombo", s.maxCombo());
-            row.put("apm", apm(s.attackSent(), durationMs));
+            row.put("apm", Apm.of(s.attackSent(), durationMs));
             stats.add(row);
         });
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -206,11 +207,5 @@ public class MatchOutcomeService {
         if (rooms.compareAndSetStatus(code, "PLAYING", "FINISHED")) {
             roomRepository.updateStatus(roomId, "FINISHED");
         }
-    }
-
-    /** APM = 보낸 공격 줄 ÷ 플레이 분, 소수 첫째 자리(요구사항 용어) */
-    static double apm(int attackSent, int durationMs) {
-        if (durationMs <= 0) return 0;
-        return Math.round(attackSent / (durationMs / 60_000.0) * 10) / 10.0;
     }
 }
