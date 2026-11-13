@@ -1,0 +1,139 @@
+{
+  "rule": "GR-05~GR-08: 블록 하나를 고정한 결과. 친구 대전 서버 재계산(BR-05)과 FE 엔진이 같은 값을 내야 한다",
+  "format": {
+    "board.bottomRows": "아래쪽 행만 위→아래 순서로 적는다. 나머지 위 행은 빈칸. 0 빈칸, IOTSZJL 블록, G 방해 줄",
+    "state.combo": "직전까지 연속 삭제 수. 끊긴 상태 = -1, 첫 삭제 뒤 0, 그다음 1, 2…",
+    "state.b2b": "직전 줄 삭제가 어려운 삭제(테트리스·줄 지운 T-스핀)였는지",
+    "state.pending": "대기 방해 줄 묶음(먼저 받은 순서). 묶음 안의 모든 줄은 holeColumn이 같다",
+    "lock": "x·y는 회전 상자 왼쪽 위 칸(열·행, 행 0이 맨 위). lastAction은 마지막 성공 동작 rotate|move|none",
+    "expected.level": "점수 계산에 쓴 레벨 = 줄을 지우기 직전 레벨",
+    "expected.attack": "상쇄 전 공격 줄", "expected.cancelled": "내 대기 방해 줄에서 상쇄한 줄", "expected.sent": "상대에게 보내는 줄",
+    "expected.garbageRaised": "줄을 못 지워 보드에 올라온 방해 줄 수. 묶음 순서대로 아래에서 올리므로 먼저 받은 묶음이 위"
+  },
+  "cases": [
+    {
+      "name": "싱글 1레벨",
+      "state": { "bottomRows": ["000000000G", "0000GGGGGG"], "linesTotal": 0, "combo": -1, "b2b": false, "pending": [] },
+      "lock": { "piece": "I", "rotation": 0, "x": 0, "y": 20, "lastAction": "move" },
+      "expected": { "bottomRows": ["000000000G"], "linesCleared": 1, "tSpin": false, "perfectClear": false, "backToBack": false,
+        "score": 100, "level": 1, "attack": 0, "cancelled": 0, "sent": 0, "garbageRaised": 0,
+        "state": { "linesTotal": 1, "combo": 0, "b2b": false, "pending": [] } }
+    },
+    {
+      "name": "점수는 줄을 지우기 직전 레벨을 쓴다(9줄 → 10줄)",
+      "state": { "bottomRows": ["000000000G", "0000GGGGGG"], "linesTotal": 9, "combo": -1, "b2b": false, "pending": [] },
+      "lock": { "piece": "I", "rotation": 0, "x": 0, "y": 20, "lastAction": "move" },
+      "expected": { "bottomRows": ["000000000G"], "linesCleared": 1, "tSpin": false, "perfectClear": false, "backToBack": false,
+        "score": 100, "level": 1, "attack": 0, "cancelled": 0, "sent": 0, "garbageRaised": 0,
+        "state": { "linesTotal": 10, "combo": 0, "b2b": false, "pending": [] } }
+    },
+    {
+      "name": "드롭 점수: 소프트 칸당 1, 하드 칸당 2",
+      "state": { "bottomRows": ["000000000G", "0000GGGGGG"], "linesTotal": 0, "combo": -1, "b2b": false, "pending": [] },
+      "lock": { "piece": "I", "rotation": 0, "x": 0, "y": 20, "lastAction": "move", "softDropCells": 3, "hardDropCells": 10 },
+      "expected": { "bottomRows": ["000000000G"], "linesCleared": 1, "tSpin": false, "perfectClear": false, "backToBack": false,
+        "score": 123, "level": 1, "attack": 0, "cancelled": 0, "sent": 0, "garbageRaised": 0,
+        "state": { "linesTotal": 1, "combo": 0, "b2b": false, "pending": [] } }
+    },
+    {
+      "name": "콤보 4(2레벨 싱글): 점수 100×2 + 50×4×2 = 600, 공격 +2",
+      "state": { "bottomRows": ["000000000G", "0000GGGGGG"], "linesTotal": 10, "combo": 3, "b2b": false, "pending": [] },
+      "lock": { "piece": "I", "rotation": 0, "x": 0, "y": 20, "lastAction": "move" },
+      "expected": { "bottomRows": ["000000000G"], "linesCleared": 1, "tSpin": false, "perfectClear": false, "backToBack": false,
+        "score": 600, "level": 2, "attack": 2, "cancelled": 0, "sent": 2, "garbageRaised": 0,
+        "state": { "linesTotal": 11, "combo": 4, "b2b": false, "pending": [] } }
+    },
+    {
+      "name": "일반 1~3줄 삭제는 B2B를 끊는다",
+      "state": { "bottomRows": ["000000000G", "0000GGGGGG"], "linesTotal": 0, "combo": -1, "b2b": true, "pending": [] },
+      "lock": { "piece": "I", "rotation": 0, "x": 0, "y": 20, "lastAction": "move" },
+      "expected": { "bottomRows": ["000000000G"], "linesCleared": 1, "tSpin": false, "perfectClear": false, "backToBack": false,
+        "score": 100, "level": 1, "attack": 0, "cancelled": 0, "sent": 0, "garbageRaised": 0,
+        "state": { "linesTotal": 1, "combo": 0, "b2b": false, "pending": [] } }
+    },
+    {
+      "name": "테트리스(B2B 아님)",
+      "state": { "bottomRows": ["G000000000", "GGGGGGGGG0", "GGGGGGGGG0", "GGGGGGGGG0", "GGGGGGGGG0"], "linesTotal": 0, "combo": -1, "b2b": false, "pending": [] },
+      "lock": { "piece": "I", "rotation": 1, "x": 7, "y": 18, "lastAction": "move" },
+      "expected": { "bottomRows": ["G000000000"], "linesCleared": 4, "tSpin": false, "perfectClear": false, "backToBack": false,
+        "score": 800, "level": 1, "attack": 4, "cancelled": 0, "sent": 4, "garbageRaised": 0,
+        "state": { "linesTotal": 4, "combo": 0, "b2b": true, "pending": [] } }
+    },
+    {
+      "name": "요구사항 GR-07 예시: 3레벨 B2B 테트리스 콤보 2 = 3,900",
+      "state": { "bottomRows": ["G000000000", "GGGGGGGGG0", "GGGGGGGGG0", "GGGGGGGGG0", "GGGGGGGGG0"], "linesTotal": 20, "combo": 1, "b2b": true, "pending": [] },
+      "lock": { "piece": "I", "rotation": 1, "x": 7, "y": 18, "lastAction": "move" },
+      "expected": { "bottomRows": ["G000000000"], "linesCleared": 4, "tSpin": false, "perfectClear": false, "backToBack": true,
+        "score": 3900, "level": 3, "attack": 6, "cancelled": 0, "sent": 6, "garbageRaised": 0,
+        "state": { "linesTotal": 24, "combo": 2, "b2b": true, "pending": [] } }
+    },
+    {
+      "name": "요구사항 GR-08 예시: 대기 3줄에서 콤보 없는 B2B 테트리스(5줄) → 3줄 상쇄, 2줄 전송",
+      "state": { "bottomRows": ["G000000000", "GGGGGGGGG0", "GGGGGGGGG0", "GGGGGGGGG0", "GGGGGGGGG0"], "linesTotal": 0, "combo": -1, "b2b": true,
+        "pending": [{ "lines": 3, "holeColumn": 2 }] },
+      "lock": { "piece": "I", "rotation": 1, "x": 7, "y": 18, "lastAction": "move" },
+      "expected": { "bottomRows": ["G000000000"], "linesCleared": 4, "tSpin": false, "perfectClear": false, "backToBack": true,
+        "score": 1200, "level": 1, "attack": 5, "cancelled": 3, "sent": 2, "garbageRaised": 0,
+        "state": { "linesTotal": 4, "combo": 0, "b2b": true, "pending": [] } }
+    },
+    {
+      "name": "상쇄는 먼저 받은 묶음부터 지운다",
+      "state": { "bottomRows": ["G000000000", "GGGGGGGGG0", "GGGGGGGGG0", "GGGGGGGGG0", "GGGGGGGGG0"], "linesTotal": 0, "combo": -1, "b2b": false,
+        "pending": [{ "lines": 2, "holeColumn": 1 }, { "lines": 3, "holeColumn": 7 }] },
+      "lock": { "piece": "I", "rotation": 1, "x": 7, "y": 18, "lastAction": "move" },
+      "expected": { "bottomRows": ["G000000000"], "linesCleared": 4, "tSpin": false, "perfectClear": false, "backToBack": false,
+        "score": 800, "level": 1, "attack": 4, "cancelled": 4, "sent": 0, "garbageRaised": 0,
+        "state": { "linesTotal": 4, "combo": 0, "b2b": true, "pending": [{ "lines": 1, "holeColumn": 7 }] } }
+    },
+    {
+      "name": "T-스핀 더블: 회전으로 넣고 대각선 3칸 막힘",
+      "state": { "bottomRows": ["GGGG000000", "GGG000GGGG", "GGGG0GGGGG"], "linesTotal": 0, "combo": -1, "b2b": false, "pending": [] },
+      "lock": { "piece": "T", "rotation": 2, "x": 3, "y": 19, "lastAction": "rotate" },
+      "expected": { "bottomRows": ["GGGG000000"], "linesCleared": 2, "tSpin": true, "perfectClear": false, "backToBack": false,
+        "score": 1200, "level": 1, "attack": 4, "cancelled": 0, "sent": 4, "garbageRaised": 0,
+        "state": { "linesTotal": 2, "combo": 0, "b2b": true, "pending": [] } }
+    },
+    {
+      "name": "마지막 동작이 회전이 아니면 같은 자리여도 T-스핀이 아니다",
+      "state": { "bottomRows": ["GGGG000000", "GGG000GGGG", "GGGG0GGGGG"], "linesTotal": 0, "combo": -1, "b2b": false, "pending": [] },
+      "lock": { "piece": "T", "rotation": 2, "x": 3, "y": 19, "lastAction": "move" },
+      "expected": { "bottomRows": ["GGGG000000"], "linesCleared": 2, "tSpin": false, "perfectClear": false, "backToBack": false,
+        "score": 300, "level": 1, "attack": 1, "cancelled": 0, "sent": 1, "garbageRaised": 0,
+        "state": { "linesTotal": 2, "combo": 0, "b2b": false, "pending": [] } }
+    },
+    {
+      "name": "B2B T-스핀 싱글: 800 × 1.5 = 1,200, 공격 2 + 1",
+      "state": { "bottomRows": ["GGGG000000", "GGG000GGG0", "GGGG0GGGGG"], "linesTotal": 0, "combo": -1, "b2b": true, "pending": [] },
+      "lock": { "piece": "T", "rotation": 2, "x": 3, "y": 19, "lastAction": "rotate" },
+      "expected": { "bottomRows": ["GGGG000000", "GGGTTTGGG0"], "linesCleared": 1, "tSpin": true, "perfectClear": false, "backToBack": true,
+        "score": 1200, "level": 1, "attack": 3, "cancelled": 0, "sent": 3, "garbageRaised": 0,
+        "state": { "linesTotal": 1, "combo": 0, "b2b": true, "pending": [] } }
+    },
+    {
+      "name": "줄 없는 T-스핀: 400점, 공격 없음, 콤보는 끊기고 B2B는 유지",
+      "state": { "bottomRows": ["GGGG000000", "GGG000GGG0", "GGGG0GGGG0"], "linesTotal": 0, "combo": 2, "b2b": true, "pending": [] },
+      "lock": { "piece": "T", "rotation": 2, "x": 3, "y": 19, "lastAction": "rotate" },
+      "expected": { "bottomRows": ["GGGG000000", "GGGTTTGGG0", "GGGGTGGGG0"], "linesCleared": 0, "tSpin": true, "perfectClear": false, "backToBack": false,
+        "score": 400, "level": 1, "attack": 0, "cancelled": 0, "sent": 0, "garbageRaised": 0,
+        "state": { "linesTotal": 0, "combo": -1, "b2b": true, "pending": [] } }
+    },
+    {
+      "name": "줄을 못 지우면 대기 방해 줄이 전부 올라오고(먼저 받은 묶음이 위) B2B는 유지",
+      "state": { "bottomRows": ["0000000GG0"], "linesTotal": 0, "combo": 1, "b2b": true,
+        "pending": [{ "lines": 2, "holeColumn": 0 }, { "lines": 1, "holeColumn": 9 }] },
+      "lock": { "piece": "O", "rotation": 0, "x": 6, "y": 19, "lastAction": "move" },
+      "expected": { "bottomRows": ["0000000OO0", "0000000OO0", "0000000GG0", "0GGGGGGGGG", "0GGGGGGGGG", "GGGGGGGGG0"],
+        "linesCleared": 0, "tSpin": false, "perfectClear": false, "backToBack": false,
+        "score": 0, "level": 1, "attack": 0, "cancelled": 0, "sent": 0, "garbageRaised": 3,
+        "state": { "linesTotal": 0, "combo": -1, "b2b": true, "pending": [] } }
+    },
+    {
+      "name": "퍼펙트 클리어: 공격 +10, 점수는 더하지 않는다",
+      "state": { "bottomRows": ["GGGGGG0000"], "linesTotal": 0, "combo": -1, "b2b": false, "pending": [] },
+      "lock": { "piece": "I", "rotation": 0, "x": 6, "y": 20, "lastAction": "move" },
+      "expected": { "bottomRows": [], "linesCleared": 1, "tSpin": false, "perfectClear": true, "backToBack": false,
+        "score": 100, "level": 1, "attack": 10, "cancelled": 0, "sent": 10, "garbageRaised": 0,
+        "state": { "linesTotal": 1, "combo": 0, "b2b": false, "pending": [] } }
+    }
+  ]
+}

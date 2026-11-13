@@ -1,0 +1,13 @@
+{
+  "rule": "GR-01~GR-04 상수",
+  "board": { "width": 10, "height": 22, "hiddenRows": 2 },
+  "spawn": { "x": 3, "y": 0, "rotation": 0, "note": "회전 상자 왼쪽 위 칸(열 x, 행 y). 행 0이 맨 위" },
+  "autoRepeat": { "dasMs": 167, "arrMs": 33 },
+  "gravityMsByLevel": [1000, 793, 618, 473, 355, 262, 190, 135, 94, 64, 43, 28, 18, 11, 7],
+  "gravityNote": "인덱스 0 = 1레벨, 15레벨 이상은 마지막 값",
+  "softDropMs": 50,
+  "linesPerLevel": 10,
+  "lockDelayMs": 500,
+  "maxLockResets": 15,
+  "previewCount": 5
+}
