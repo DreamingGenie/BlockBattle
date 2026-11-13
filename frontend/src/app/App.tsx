@@ -2,6 +2,7 @@ import { useEffect, type ReactElement } from 'react';
 import { LobbyScreen } from '../screens/LobbyScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SoloScreen } from '../screens/SoloScreen';
+import { AiScreen } from '../screens/AiScreen';
 import { navigate, useRoute, type Route } from './router';
 import { SessionProvider, useSession } from './session';
 
@@ -9,6 +10,7 @@ import { SessionProvider, useSession } from './session';
 const screens: Partial<Record<Route['name'], (route: Route) => ReactElement>> = {
   lobby: () => <LobbyScreen />,
   solo: () => <SoloScreen />,
+  ai: () => <AiScreen />,
 };
 
 function Routed() {
