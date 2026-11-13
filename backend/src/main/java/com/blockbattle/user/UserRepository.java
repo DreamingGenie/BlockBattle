@@ -6,6 +6,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -44,6 +45,32 @@ public class UserRepository {
 
     public Set<String> findUsedTags(String nickname) {
         return new HashSet<>(jdbc.queryForList("SELECT tag FROM users WHERE nickname = ?", String.class, nickname));
+    }
+
+    public record UserRow(long id, String nickname, String tag, String userType, String provider) {
+    }
+
+    private static final String USER_COLUMNS = "SELECT id, nickname, tag, user_type, provider FROM users ";
+
+    private UserRow map(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new UserRow(rs.getLong("id"), rs.getString("nickname"), rs.getString("tag"), rs.getString("user_type"),
+                rs.getString("provider"));
+    }
+
+    /** 트랜잭션 안에서 행을 잠근다(SELECT … FOR UPDATE) */
+    public Optional<UserRow> findForUpdate(long userId) {
+        return jdbc.query(USER_COLUMNS + "WHERE id = ? FOR UPDATE", (rs, i) -> map(rs), userId).stream().findFirst();
+    }
+
+    public Optional<UserRow> findByProvider(String provider, String providerId) {
+        return jdbc.query(USER_COLUMNS + "WHERE provider = ? AND provider_id = ?", (rs, i) -> map(rs), provider, providerId)
+                .stream().findFirst();
+    }
+
+    /** UQ(provider, provider_id)를 어기면 DuplicateKeyException */
+    public void linkProvider(long userId, String provider, String providerId) {
+        jdbc.update("UPDATE users SET provider = ?, provider_id = ?, user_type = 'MEMBER' WHERE id = ?",
+                provider, providerId, userId);
     }
 
     public void touchLastLogin(long userId, Instant now) {
