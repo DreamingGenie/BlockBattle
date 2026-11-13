@@ -28,6 +28,15 @@ public class RoomMessageController {
         locks.handle(code, Long.parseLong(user.getName()), message);
     }
 
+    public record TopoutRequest(Integer seq) {
+    }
+
+    /** 5.3 SEND /app/rooms/{code}/topout — 서버 보드로 확인한 뒤 BR-04 판정(T-13) */
+    @MessageMapping("/rooms/{code}/topout")
+    public void topout(@DestinationVariable String code, @Payload TopoutRequest request, Principal user) {
+        locks.topout(code, Long.parseLong(user.getName()), request == null ? null : request.seq());
+    }
+
     /** 5.1 SEND /app/rooms/{code}/ready — payload {"ready": true} */
     @MessageMapping("/rooms/{code}/ready")
     public void ready(@DestinationVariable String code, @Payload ReadyRequest request, Principal user) {

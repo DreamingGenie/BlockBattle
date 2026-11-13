@@ -4,6 +4,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -90,6 +91,31 @@ public class MatchRepository {
                 WHERE match_id = ? AND slot = ?""",
                 result, s.score(), s.linesCleared(), s.level(), s.piecesPlaced(), s.attackSent(), s.attackReceived(),
                 s.maxCombo(), matchId, slot);
+    }
+
+    public record FriendMatch(long id, long roomId, Instant startedAt, Map<Long, Integer> slots) {
+    }
+
+    public Optional<FriendMatch> findFriendMatch(long matchId) {
+        var rows = jdbc.queryForList("""
+                SELECT m.id, m.room_id, m.started_at, p.slot, p.user_id
+                FROM matches m JOIN match_players p ON p.match_id = m.id
+                WHERE m.id = ? AND m.mode = 'FRIEND'""", matchId);
+        if (rows.isEmpty()) return Optional.empty();
+        Map<Long, Integer> slots = new java.util.LinkedHashMap<>();
+        for (var r : rows) slots.put(((Number) r.get("user_id")).longValue(), ((Number) r.get("slot")).intValue());
+        Instant startedAt = jdbc.queryForObject("SELECT started_at FROM matches WHERE id = ?", Timestamp.class, matchId).toInstant();
+        return Optional.of(new FriendMatch(matchId, ((Number) rows.get(0).get("room_id")).longValue(), startedAt, slots));
+    }
+
+    /** 친구 대전 종료(BR-02·BR-04). 아직 PLAYING일 때만 바꾼다 — 동시에 여러 사유가 와도 한 번만 확정된다 */
+    public boolean finishFriend(long matchId, String status, String endReason, Long winnerUserId, Long seriesWinnerUserId,
+                                Instant endedAt, int durationMs) {
+        return jdbc.update("""
+                UPDATE matches SET status = ?, end_reason = ?, winner_user_id = ?, series_winner_user_id = ?,
+                    ended_at = ?, duration_ms = ?
+                WHERE id = ? AND status = 'PLAYING'""",
+                status, endReason, winnerUserId, seriesWinnerUserId, Timestamp.from(endedAt), durationMs, matchId) == 1;
     }
 
     /** BR-02: 결과가 저장되지 않은 SOLO·AI 경기를 시작 2시간 뒤 ABORTED(EXPIRED)로 닫는다 */

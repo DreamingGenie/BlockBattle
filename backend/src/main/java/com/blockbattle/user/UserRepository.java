@@ -98,6 +98,13 @@ public class UserRepository {
                 Timestamp.from(now), userId);
     }
 
+    /** BR-09 친구 대전: 라운드마다 승자 friend_wins, 패자 friend_losses + 1 */
+    public void recordFriendResult(long userId, boolean win, Instant now) {
+        String column = win ? "friend_wins" : "friend_losses";
+        jdbc.update("UPDATE user_stats SET " + column + " = " + column + " + 1, updated_at = ? WHERE user_id = ?",
+                Timestamp.from(now), userId);
+    }
+
     public void touchLastLogin(long userId, Instant now) {
         jdbc.update("UPDATE users SET last_login_at = ? WHERE id = ?", Timestamp.from(now), userId);
     }

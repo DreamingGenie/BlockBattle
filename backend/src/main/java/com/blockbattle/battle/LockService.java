@@ -9,6 +9,8 @@ import com.blockbattle.engine.Placement;
 import com.blockbattle.realtime.RoomEventPublisher;
 import com.blockbattle.store.redis.RoomStateStore;
 import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,17 +37,61 @@ public class LockService {
     private final RoomEventPublisher events;
     private final SimpMessagingTemplate messaging;
     private final JdbcTemplate jdbc;
+    private final MatchOutcomeService outcomes;
+    private final BattleScheduler scheduler;
+    private final Clock clock;
     private final SecureRandom random = new SecureRandom();
     private final Map<Long, Object> matchLocks = new ConcurrentHashMap<>();
     private final Map<Long, Long> seeds = new ConcurrentHashMap<>();
 
     public LockService(RoomStateStore rooms, PlayerStateRepository states, RoomEventPublisher events,
-                       SimpMessagingTemplate messaging, JdbcTemplate jdbc) {
+                       SimpMessagingTemplate messaging, JdbcTemplate jdbc, MatchOutcomeService outcomes,
+                       BattleScheduler scheduler, Clock clock) {
         this.rooms = rooms;
         this.states = states;
         this.events = events;
         this.messaging = messaging;
         this.jdbc = jdbc;
+        this.outcomes = outcomes;
+        this.scheduler = scheduler;
+        this.clock = clock;
+    }
+
+    /** BR-04 동시 topout 판정 창 */
+    static final Duration DRAW_WINDOW = Duration.ofMillis(100);
+
+    /**
+     * API 명세 5.3 topout. seq가 마지막 lock과 같고, 서버 보드에서 다음 블록이 생성 자리(회전 0, x 3, y 0)에 들어가지 않을 때만 받는다.
+     * topoutAt을 남기고 100ms 뒤 상대 topout을 보고 TOP_OUT·DRAW를 정한다(BR-04). 확인되지 않으면 무시한다.
+     */
+    public void topout(String code, long userId, Integer seq) {
+        Map<String, String> room = rooms.getRoom(code);
+        String current = room.get("currentMatchId");
+        if (seq == null || !"PLAYING".equals(room.get("status")) || current == null || current.isBlank()) return;
+        long matchId = Long.parseLong(current);
+        synchronized (matchLocks.computeIfAbsent(matchId, id -> new Object())) {
+            PlayerState me = states.load(matchId, userId);
+            if (me.topoutAt() != null || seq != me.seq()) return;
+            Piece next = new PieceSequence(seedOf(matchId)).at(me.pieceIndex());
+            if (me.board().fits(new Placement(next, 0, 3, 0))) return; // 아직 나올 수 있다
+            states.save(matchId, userId, new PlayerState(me.board(), me.seq(), me.pieceIndex(), me.hold(), me.holdUsed(),
+                    me.pending(), me.combo(), me.b2b(), me.score(), me.linesCleared(), me.level(), me.piecesPlaced(),
+                    me.attackSent(), me.attackReceived(), me.maxCombo(), clock.millis()));
+        }
+        scheduler.after(DRAW_WINDOW, () -> decideTopout(code, matchId, userId));
+    }
+
+    private void decideTopout(String code, long matchId, long userId) {
+        PlayerState me = states.load(matchId, userId);
+        long opponentId = rooms.getPlayers(code).keySet().stream().filter(id -> id != userId).findFirst().orElse(-1L);
+        Long oppAt = opponentId > 0 ? states.load(matchId, opponentId).topoutAt() : null;
+        if (oppAt != null && Math.abs(oppAt - me.topoutAt()) <= DRAW_WINDOW.toMillis()) {
+            outcomes.finish(code, matchId, MatchOutcomeService.Reason.DRAW, null);
+        } else if (oppAt != null && oppAt < me.topoutAt()) {
+            outcomes.finish(code, matchId, MatchOutcomeService.Reason.TOP_OUT, opponentId);
+        } else {
+            outcomes.finish(code, matchId, MatchOutcomeService.Reason.TOP_OUT, userId);
+        }
     }
 
     public void handle(String code, long userId, LockMessage msg) {
@@ -59,7 +105,7 @@ public class LockService {
         synchronized (matchLocks.computeIfAbsent(matchId, id -> new Object())) {
             PlayerState me = states.load(matchId, userId);
             if (msg == null || msg.seq() == null) return;
-            if (msg.seq() == me.seq()) return; // 같은 seq는 무시
+            if (msg.seq() == me.seq() || me.topoutAt() != null) return; // 같은 seq·topout 뒤 lock은 무시
             Outcome outcome = evaluate(matchId, me, msg);
             if (outcome == null) {
                 rejectLock(userId, msg.seq(), me);
