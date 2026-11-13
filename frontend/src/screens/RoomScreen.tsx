@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, errorMessage } from '../api/client';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
 import { useRoomConnection, type PersonalError, type RoomView } from '../realtime/room';
 import type { WsMessage } from '../realtime/stomp';
+import type { GameOverPayload, ResyncPayload } from '../game/friend';
+import { MatchPanel, type MatchPanelHandle } from './MatchPanel';
 
 export interface Countdown {
   matchId: number;
@@ -24,6 +26,12 @@ export function RoomScreen({ code }: { code: string }) {
   const [countdown, setCountdown] = useState<Countdown | null>(null);
   const [now, setNow] = useState(Date.now());
   const participant = !!room && !!me && room.players.some((p) => p.userId === me.userId);
+  const match = useRef<MatchPanelHandle>(null);
+  const [names, setNames] = useState<Record<number, string>>({});
+  useEffect(() => {
+    // 상대가 나간 뒤에도 결과 화면에 이름이 남도록 쌓아 둔다
+    if (room) setNames((n) => ({ ...n, ...Object.fromEntries(room.players.map((p) => [p.userId, `${p.nickname}#${p.tag}`])) }));
+  }, [room]);
 
   const load = useCallback(async () => {
     try {
@@ -53,6 +61,21 @@ export function RoomScreen({ code }: { code: string }) {
           break;
         case 'COUNTDOWN':
           setCountdown(message.payload as unknown as Countdown);
+          match.current?.countdown(message.payload as unknown as Countdown);
+          setNotice(null);
+          break;
+        case 'BOARD':
+          match.current?.board(message.payload as never);
+          break;
+        case 'ATTACK':
+          match.current?.attack(message.payload as never);
+          break;
+        case 'GAME_OVER':
+          match.current?.gameOver(message.payload as unknown as GameOverPayload);
+          load();
+          break;
+        case 'REMATCH_CHANGED':
+          match.current?.rematchChanged(message.payload as never);
           break;
         case 'ROOM_CLOSED': {
           const reason = (message.payload as { reason?: string }).reason;
@@ -64,12 +87,17 @@ export function RoomScreen({ code }: { code: string }) {
     [load],
   );
 
-  const onError = useCallback((e: PersonalError) => setNotice(errorMessage(new ApiError(400, e.code, e.message))), []);
+  const onError = useCallback((e: PersonalError) => {
+    if (e.code === 'INVALID_LOCK') match.current?.invalidLock();
+    else setNotice(errorMessage(new ApiError(400, e.code, e.message)));
+  }, []);
 
   const connection = useRoomConnection(api, participant && !closed ? code : null, {
     onTopic,
     onError,
-    onState: () => {},
+    onState: (message) => {
+      if (message.type === 'RESYNC') match.current?.resync(message.payload as unknown as ResyncPayload);
+    },
     onConnected: (reconnect) => {
       if (reconnect) setNotice('다시 연결했습니다.');
       load();
@@ -144,7 +172,19 @@ export function RoomScreen({ code }: { code: string }) {
         </section>
       )}
 
-      {room && participant && !closed && (
+      {room && participant && !closed && me && (
+        <MatchPanel
+          ref={match}
+          code={code}
+          myId={me.userId}
+          names={names}
+          connected={connection.connected}
+          send={connection.send}
+          resubscribeState={connection.resubscribeState}
+        />
+      )}
+
+      {room && participant && !closed && !countdown && (
         <section className="grid menu">
           <div className="card stack">
             <h2>참가자</h2>

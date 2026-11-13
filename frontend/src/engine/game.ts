@@ -1,5 +1,5 @@
 import { PieceSequence } from './bag';
-import { boardToString, emptyBoard, fits, isGrounded } from './board';
+import { boardFromString, boardToString, emptyBoard, fits, isGrounded } from './board';
 import {
   LOCK_DELAY_MS,
   MAX_LOCK_RESETS,
@@ -183,6 +183,28 @@ export class Game {
         }
       }
     }
+  }
+
+  /**
+   * 서버 상태로 되돌린다(친구 대전 RESYNC, API 명세 5.7, T-22). 규칙은 바꾸지 않고 값만 맞춘다.
+   * pieceIndex는 지금 놓을 블록의 시드 순번(서버 기준)이다. 누적 줄·콤보·B2B·점수는 RESYNC에 없어 그대로 둔다.
+   */
+  restore(state: {
+    board: string;
+    seq: number;
+    pieceIndex: number;
+    hold: PieceType | null;
+    holdUsed: boolean;
+    pending: readonly GarbageBundle[];
+  }): void {
+    this.lockState = { ...this.lockState, board: boardFromString(state.board), pending: [...state.pending] };
+    this.seq = state.seq;
+    this.hold = state.hold;
+    this.holdUsed = state.holdUsed;
+    this.gameOver = false;
+    this.events = [];
+    this.nextIndex = state.pieceIndex;
+    this.spawn(this.sequence.at(this.nextIndex++));
   }
 
   snapshot() {

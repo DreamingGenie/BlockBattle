@@ -24,6 +24,7 @@ export interface RoomHandlers {
   onError: (error: PersonalError) => void;
   onState: (message: WsMessage) => void;
   onConnected?: (reconnect: boolean) => void;
+  onDisconnected?: () => void;
 }
 
 /**
@@ -46,7 +47,10 @@ export function useRoomConnection(api: ApiClient, code: string | null, handlers:
         setConnected(true);
         latest.current.onConnected?.(reconnect);
       },
-      onDisconnected: () => setConnected(false),
+      onDisconnected: () => {
+        setConnected(false);
+        latest.current.onDisconnected?.();
+      },
     });
     stomp.subscribe(`/topic/rooms/${code}`, (body) => latest.current.onTopic(body as WsMessage));
     stomp.subscribe('/user/queue/errors', (body) => latest.current.onError(body as PersonalError));
@@ -63,6 +67,9 @@ export function useRoomConnection(api: ApiClient, code: string | null, handlers:
   return {
     connected,
     send: (destination: string, body: unknown) => client.current?.send(destination, body) ?? false,
+    /** /user/queue/state를 한 번 더 구독해 RESYNC를 다시 받는다(INVALID_LOCK 뒤 복원, T-22). 해지 함수를 돌려준다 */
+    resubscribeState: (): (() => void) | undefined =>
+      client.current?.subscribe('/user/queue/state', (body) => latest.current.onState(body as WsMessage)),
   };
 }
 
