@@ -207,6 +207,14 @@ class FriendOutcomeTest {
         assertThat(p.at("/pendingGarbage/0/holeColumn").asInt()).isEqualTo(attack.get("holeColumn").asInt());
         assertThat(p.at("/opponent/userId").asLong()).isEqualTo(host);
         assertThat(p.at("/opponent/board").asText()).isEqualTo(states.load(matchId, host).board().toString());
+        // POL-006 v2: 새로 연 화면이 블록 순서·성적을 되살릴 시드와 내 성적
+        PlayerState mine = states.load(matchId, guest);
+        assertThat(p.get("seed").asLong()).isEqualTo(jdbc.queryForObject("SELECT seed FROM matches WHERE id = ?", Long.class, matchId));
+        assertThat(p.at("/me/score").asInt()).isEqualTo(mine.score());
+        assertThat(p.at("/me/linesCleared").asInt()).isEqualTo(mine.linesCleared());
+        assertThat(p.at("/me/level").asInt()).isEqualTo(mine.level());
+        assertThat(p.at("/me/combo").asInt()).isEqualTo(mine.combo());
+        assertThat(p.at("/me/b2b").asBoolean()).isEqualTo(mine.b2b());
 
         long waitUntilGraceOver = disconnectedAt + 10_800 - System.currentTimeMillis();
         assertThat(poll(topic, "GAME_OVER", Math.max(waitUntilGraceOver, 100))).as("재접속하면 타이머가 취소된다").isNull();

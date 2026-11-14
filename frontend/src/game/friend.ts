@@ -11,6 +11,8 @@ export function lockMessage(event: LockEvent) {
     holdUsed: event.holdUsed,
     lastMove: event.lastAction === 'rotate' ? 'ROTATE' : 'MOVE',
     linesCleared: event.result.linesCleared,
+    softDropCells: event.softDropCells,
+    hardDropCells: event.hardDropCells,
   };
 }
 
@@ -24,11 +26,22 @@ export interface ResyncPayload {
   board: string;
   pendingGarbage: GarbageBundle[];
   opponent?: { userId: number; board: string; score: number };
+  /** 경기 시드와 서버 기준 내 성적(POL-006 v2). 새로 연 화면은 seed와 pieceIndex로 블록 순서를 다시 만든다 */
+  seed?: number;
+  me?: { score: number; linesCleared: number; level: number; combo: number; b2b: boolean };
 }
 
 /** RESYNC를 엔진 restore() 인자로 */
 export function restoreArgs(p: ResyncPayload) {
-  return { board: p.board, seq: p.seq, pieceIndex: p.pieceIndex, hold: p.hold, holdUsed: p.holdUsed, pending: p.pendingGarbage ?? [] };
+  return {
+    board: p.board,
+    seq: p.seq,
+    pieceIndex: p.pieceIndex,
+    hold: p.hold,
+    holdUsed: p.holdUsed,
+    pending: p.pendingGarbage ?? [],
+    stats: p.me ? { score: p.me.score, linesCleared: p.me.linesCleared, combo: p.me.combo, b2b: p.me.b2b } : undefined,
+  };
 }
 
 /** GAME_OVER payload(API 명세 5.5) */

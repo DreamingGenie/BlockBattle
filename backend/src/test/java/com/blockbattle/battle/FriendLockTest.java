@@ -129,6 +129,33 @@ class FriendLockTest {
         assertThat(hostErrors.poll(100, TimeUnit.MILLISECONDS)).isNull();
     }
 
+    /** POL-005 v2·GR-07 ④. 깨지면: 친구 대전 점수에 드롭 점수가 빠지거나, 위조한 드롭 칸으로 정상 플레이보다 높은 점수를 얻는다 */
+    @Test
+    void 드롭_칸_수는_상한까지만_점수에_더하고_잘못된_값은_0으로_보며_lock은_받아들인다() throws Exception {
+        Board board = Board.empty();
+        Piece first = sequence.at(0);
+        Placement p1 = hardDrop(board, first);
+        lock(1, first, p1, Map.of("softDropCells", 3, "hardDropCells", 10));
+        int expected = 3 + 2 * 10;
+        assertThat(next(topic, "BOARD").at("/payload/score").asInt()).isEqualTo(expected);
+
+        board = board.place(p1);
+        Piece second = sequence.at(1);
+        Placement p2 = hardDrop(board, second);
+        lock(2, second, p2, Map.of("softDropCells", 2, "hardDropCells", 99)); // 합이 y를 넘으면 하드 칸부터 잘린다
+        expected += 2 + 2 * (p2.y() - 2);
+        assertThat(next(topic, "BOARD").at("/payload/score").asInt()).isEqualTo(expected);
+
+        board = board.place(p2);
+        Piece third = sequence.at(2);
+        lock(3, third, hardDrop(board, third), Map.of("softDropCells", "abc", "hardDropCells", -5));
+        JsonNode accepted = next(topic, "BOARD").get("payload");
+        assertThat(accepted.get("seq").asInt()).isEqualTo(3);
+        assertThat(accepted.get("score").asInt()).isEqualTo(expected);
+        assertThat(hostErrors.poll(300, TimeUnit.MILLISECONDS)).as("드롭 칸 값은 INVALID_LOCK 사유가 아니다").isNull();
+        assertThat(states.load(matchId, host).score()).isEqualTo(expected);
+    }
+
     @Test
     void seq를_건너뛰거나_나올_수_없는_블록이거나_위치가_틀리거나_줄_수가_다르면_INVALID_LOCK() throws Exception {
         Piece first = sequence.at(0);
@@ -217,6 +244,20 @@ class FriendLockTest {
         body.put("holdUsed", holdUsed);
         body.put("lastMove", lastMove);
         body.put("linesCleared", lines);
+        hostSession.send("/app/rooms/" + code + "/lock", body);
+    }
+
+    /** 줄을 지우지 않는 하드 드롭 lock에 드롭 칸 필드를 붙여 보낸다 */
+    private void lock(int seq, Piece piece, Placement p, Map<String, Object> dropCells) {
+        Map<String, Object> body = new HashMap<>(dropCells);
+        body.put("seq", seq);
+        body.put("piece", piece.name());
+        body.put("rotation", p.rotation());
+        body.put("x", p.x());
+        body.put("y", p.y());
+        body.put("holdUsed", false);
+        body.put("lastMove", "DROP");
+        body.put("linesCleared", 0);
         hostSession.send("/app/rooms/" + code + "/lock", body);
     }
 

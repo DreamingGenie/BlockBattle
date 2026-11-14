@@ -28,9 +28,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class LockService {
 
+    /**
+     * API 명세 5.2. softDropCells·hardDropCells는 Object로 받아 문자열·소수가 와도 lock 전체가 버려지지 않게 한다
+     * (정수가 아니면 0, POL-005).
+     */
     public record LockMessage(Integer seq, String piece, Integer rotation, Integer x, Integer y, Boolean holdUsed,
-                              String lastMove, Integer linesCleared) {
+                              String lastMove, Integer linesCleared, Object softDropCells, Object hardDropCells) {
     }
+
+    /** 새 블록이 나오는 행(GR-04, 회전 0·x 3·y 0) */
+    static final int SPAWN_Y = 0;
 
     private final RoomStateStore rooms;
     private final PlayerStateRepository states;
@@ -188,10 +195,32 @@ public class LockService {
         if (r.linesCleared() != msg.linesCleared()) return null;
 
         LockRules.State n = r.next();
+        int dropScore = dropScore(msg.y(), msg.softDropCells(), msg.hardDropCells());
         PlayerState next = new PlayerState(n.board(), msg.seq(), nextIndex, nextHold, false, n.pending(), n.combo(), n.b2b(),
-                me.score() + r.score(), n.linesTotal(), LockRules.levelForLines(n.linesTotal()), me.piecesPlaced() + 1,
+                me.score() + r.score() + dropScore, n.linesTotal(), LockRules.levelForLines(n.linesTotal()), me.piecesPlaced() + 1,
                 me.attackSent() + r.sent(), me.attackReceived(), Math.max(me.maxCombo(), n.combo()), me.topoutAt());
         return new Outcome(next, r);
+    }
+
+    /**
+     * GR-07 ④ 드롭 점수(소프트 칸당 1, 하드 칸당 2). 경로는 검사하지 않으므로(POL-005) 두 칸 수의 합을
+     * 생성 행에서 내려온 행 수(y − SPAWN_Y)로 묶고, 넘으면 하드 칸부터 잘라낸다. 정수가 아니거나 음수면 0이다.
+     */
+    static int dropScore(int y, Object softValue, Object hardValue) {
+        int cap = Math.max(0, y - SPAWN_Y);
+        int soft = dropCells(softValue);
+        int hard = dropCells(hardValue);
+        if (soft + hard > cap) hard = Math.max(0, cap - soft);
+        if (soft > cap) soft = cap;
+        return soft + 2 * hard;
+    }
+
+    private static int dropCells(Object value) {
+        if (value instanceof Integer || value instanceof Long || value instanceof Short || value instanceof Byte) {
+            long cells = ((Number) value).longValue();
+            return cells < 0 ? 0 : (int) Math.min(cells, Board.HEIGHT);
+        }
+        return 0;
     }
 
     /** API 명세 5.6: 보낸 사람에게만. 클라이언트는 서버 보드로 바꾸고 nextSeq부터 다시 보낸다 */
@@ -202,7 +231,8 @@ public class LockService {
                 "payload", Map.of("seq", seq, "board", me.board().toString(), "nextSeq", me.seq() + 1)));
     }
 
-    private long seedOf(long matchId) {
+    /** 경기 시드(matches.seed). RESYNC(POL-006)도 이 값을 쓴다 */
+    long seedOf(long matchId) {
         return seeds.computeIfAbsent(matchId,
                 id -> jdbc.queryForObject("SELECT seed FROM matches WHERE id = ?", Long.class, id));
     }

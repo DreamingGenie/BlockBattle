@@ -96,7 +96,11 @@ export function RoomScreen({ code }: { code: string }) {
     onTopic,
     onError,
     onState: (message) => {
-      if (message.type === 'RESYNC') match.current?.resync(message.payload as unknown as ResyncPayload);
+      if (message.type !== 'RESYNC') return;
+      const p = message.payload as unknown as ResyncPayload;
+      match.current?.resync(p);
+      // 새로 연 화면이면 대기 화면 대신 진행 중 경기를 보인다(POL-006 v2)
+      if (p.seed != null) setCountdown((c) => c ?? { matchId: p.matchId, seriesNo: 0, roundNo: 0, attemptNo: 1, seed: p.seed!, startsAt: 0 });
     },
     onConnected: (reconnect) => {
       if (reconnect) setNotice('다시 연결했습니다.');

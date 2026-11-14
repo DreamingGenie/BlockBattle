@@ -83,7 +83,7 @@ class SharedFixturesTest {
         assertThat(r.tSpin()).isEqualTo(e.get("tSpin").asBoolean());
         assertThat(r.perfectClear()).isEqualTo(e.get("perfectClear").asBoolean());
         assertThat(r.backToBack()).isEqualTo(e.get("backToBack").asBoolean());
-        // 서버는 드롭 칸 수를 받지 않으므로 드롭 점수를 뺀 값과 비교한다
+        // LockRules는 드롭 점수를 빼고 계산한다(드롭 점수는 LockService가 lock의 드롭 칸 수로 더한다, POL-005)
         assertThat(r.score()).isEqualTo(e.get("score").asInt() - dropScore);
         assertThat(r.level()).isEqualTo(e.get("level").asInt());
         assertThat(r.attack()).isEqualTo(e.get("attack").asInt());

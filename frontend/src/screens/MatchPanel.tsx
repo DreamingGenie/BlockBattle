@@ -88,13 +88,25 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
       stopResync.current = resubscribeState();
     },
     resync(p) {
-      const g = game.current;
+      let g = game.current;
       if (!g || p.matchId !== matchId.current) {
-        if (!g) setNote('진행 중인 경기가 있지만 이 화면에는 시드가 없어 이어 할 수 없습니다. 상대가 끝내기를 기다려 주세요.');
-        return;
+        if (p.seed == null) {
+          if (!g) setNote('진행 중인 경기가 있지만 이 화면에는 시드가 없어 이어 할 수 없습니다. 상대가 끝내기를 기다려 주세요.');
+          return;
+        }
+        // 페이지를 새로 열었다: RESYNC의 시드로 같은 블록 순서를 다시 만들어 바로 이어 한다(POL-006 v2)
+        g = new Game(p.seed);
+        game.current = g;
+        matchId.current = p.matchId;
+        startsAt.current = 0;
+        finished.current = false;
+        setRound({ matchId: p.matchId, seriesNo: 0, roundNo: 0, attemptNo: 1, seed: p.seed, startsAt: 0 });
+        setOver(null);
+        setRematch({});
       }
       g.restore(restoreArgs(p));
       if (p.opponent) opponent.current = { board: boardFromString(p.opponent.board), score: p.opponent.score };
+      setScores((s) => ({ me: p.me?.score ?? s.me, opp: p.opponent?.score ?? s.opp }));
       resyncing.current = false;
       stopResync.current?.();
       stopResync.current = undefined;
@@ -142,7 +154,9 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
   return (
     <section className="stack" style={{ marginTop: 16 }}>
       <p className="muted">
-        시리즈 {round.seriesNo} · {round.roundNo}라운드{round.attemptNo > 1 ? ` (재시도 ${round.attemptNo})` : ''}
+        {round.seriesNo > 0
+          ? `시리즈 ${round.seriesNo} · ${round.roundNo}라운드${round.attemptNo > 1 ? ` (재시도 ${round.attemptNo})` : ''}`
+          : '경기 이어 하는 중'}
         {!connected && ' · 연결이 끊겨 다시 연결하는 중… 내 보드는 멈춰 있습니다'}
         {note && ` · ${note}`}
       </p>

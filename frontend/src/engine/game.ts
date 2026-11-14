@@ -23,6 +23,9 @@ export interface LockEvent {
   /** 이 블록이 나오기 전에 홀드를 썼는지 */
   holdUsed: boolean;
   lastAction: LastAction;
+  /** 이 블록이 소프트·하드 드롭으로 내려온 칸 수(GR-07 ④, 친구 대전 서버 점수에 쓴다) */
+  softDropCells: number;
+  hardDropCells: number;
   result: LockResult;
 }
 
@@ -196,8 +199,15 @@ export class Game {
     hold: PieceType | null;
     holdUsed: boolean;
     pending: readonly GarbageBundle[];
+    /** 서버 진행 상태의 내 성적(RESYNC me, POL-006). 없으면 엔진 값을 그대로 둔다 */
+    stats?: { score: number; linesCleared: number; combo: number; b2b: boolean };
   }): void {
     this.lockState = { ...this.lockState, board: boardFromString(state.board), pending: [...state.pending] };
+    if (state.stats) {
+      const { score, linesCleared, combo, b2b } = state.stats;
+      this.lockState = { ...this.lockState, linesTotal: linesCleared, combo, b2b };
+      this.score = score;
+    }
     this.seq = state.seq;
     this.hold = state.hold;
     this.holdUsed = state.holdUsed;
@@ -276,6 +286,8 @@ export class Game {
       placement: this.current,
       holdUsed: this.holdUsed,
       lastAction: this.lastAction,
+      softDropCells: this.softCells,
+      hardDropCells,
       result,
     });
     this.holdUsed = false;

@@ -41,11 +41,12 @@ public class ConnectionEvents {
     private final MatchOutcomeService outcomes;
     private final BattleScheduler scheduler;
     private final Clock clock;
+    private final LockService locks;
     private final Map<Long, Set<String>> openSessions = new ConcurrentHashMap<>();
 
     public ConnectionEvents(RoomStateStore rooms, DisconnectTimerStore timers, PlayerStateRepository states,
                             RoomEventPublisher events, SimpMessagingTemplate messaging, MatchOutcomeService outcomes,
-                            BattleScheduler scheduler, Clock clock) {
+                            BattleScheduler scheduler, Clock clock, LockService locks) {
         this.rooms = rooms;
         this.timers = timers;
         this.states = states;
@@ -54,6 +55,7 @@ public class ConnectionEvents {
         this.outcomes = outcomes;
         this.scheduler = scheduler;
         this.clock = clock;
+        this.locks = locks;
     }
 
     private record Playing(String code, long matchId) {
@@ -149,6 +151,15 @@ public class ConnectionEvents {
             PlayerState opp = states.load(p.matchId(), opponentId);
             payload.put("opponent", Map.of("userId", opponentId, "board", opp.board().toString(), "score", opp.score()));
         }
+        // POL-006: 페이지를 새로 연 클라이언트가 시드와 pieceIndex로 블록 순서를, me로 성적 표시를 되살린다
+        payload.put("seed", locks.seedOf(p.matchId()));
+        Map<String, Object> mine = new LinkedHashMap<>();
+        mine.put("score", me.score());
+        mine.put("linesCleared", me.linesCleared());
+        mine.put("level", me.level());
+        mine.put("combo", me.combo());
+        mine.put("b2b", me.b2b());
+        payload.put("me", mine);
         messaging.convertAndSendToUser(Long.toString(userId), "/queue/state",
                 new WsMessage("RESYNC", p.code(), clock.millis(), payload));
     }
