@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
 
-/** 로비: 내 정보·전적 요약(REQ-003, API-006)과 모드 메뉴 */
+/** 로비: 모드 목록 하나에 내 전적 요약(REQ-003, API-006)을 함께 보여 준다 */
 export function LobbyScreen() {
   const { me, logout, reloadMe } = useSession();
 
@@ -12,55 +12,43 @@ export function LobbyScreen() {
 
   if (!me) return null;
   const s = me.stats;
+  const modes = [
+    { path: '/solo', name: '싱글', desc: '혼자 최고 점수에 도전하고 랭킹에 오릅니다', stat: `${s.soloGames}판 · 최고 ${s.soloBestScore.toLocaleString()}점` },
+    { path: '/ai', name: 'vs AI', desc: 'EASY · NORMAL · HARD 중 골라 AI와 대전합니다', stat: `${s.aiWins}승 ${s.aiLosses}패` },
+    { path: '/room', name: '친구 대전', desc: '방을 만들어 코드로 친구를 부르거나 코드로 들어갑니다', stat: `${s.friendWins}승 ${s.friendLosses}패` },
+  ];
+
   return (
     <main className="page">
       <header className="topbar">
-        <strong>블록 배틀</strong>
-        <span>
-          {me.nickname}#{me.tag} <span className="badge">{me.userType === 'MEMBER' ? '회원' : '게스트'}</span>
+        <strong className="wordmark">블록 배틀</strong>
+        <span className="row">
+          <span>
+            {me.nickname}
+            <span className="muted">#{me.tag}</span>
+          </span>
+          <span className="muted small">{me.userType === 'MEMBER' ? '회원' : '게스트'}</span>
+          <button className="link" onClick={() => logout()}>
+            로그아웃
+          </button>
         </span>
-        <button className="link" onClick={() => logout()}>
-          로그아웃
-        </button>
       </header>
-      <section className="grid stats">
-        <div className="card">
-          <h3>싱글</h3>
-          <p>
-            {s.soloGames}판 · 최고 {s.soloBestScore.toLocaleString()}점
-          </p>
-        </div>
-        <div className="card">
-          <h3>vs AI</h3>
-          <p>
-            {s.aiWins}승 {s.aiLosses}패
-          </p>
-        </div>
-        <div className="card">
-          <h3>친구 대전</h3>
-          <p>
-            {s.friendWins}승 {s.friendLosses}패
-          </p>
-        </div>
-      </section>
-      <section className="grid menu">
-        <button className="big" onClick={() => navigate('/solo')}>
-          싱글 플레이
-          <small>최고 점수에 도전하고 랭킹에 올라가기</small>
+      <ul className="modes">
+        {modes.map((m) => (
+          <li key={m.path}>
+            <button className="mode" onClick={() => navigate(m.path)}>
+              <span className="mode-name">{m.name}</span>
+              <span className="mode-desc muted">{m.desc}</span>
+              <span className="mode-stat num">{m.stat}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p>
+        <button className="link" onClick={() => navigate('/records')}>
+          최근 경기 기록 보기 →
         </button>
-        <button className="big" onClick={() => navigate('/ai')}>
-          vs AI
-          <small>EASY · NORMAL · HARD</small>
-        </button>
-        <button className="big" onClick={() => navigate('/room')}>
-          친구 대전
-          <small>방을 만들거나 코드로 들어가기</small>
-        </button>
-        <button className="big" onClick={() => navigate('/records')}>
-          기록
-          <small>최근 경기와 상세 성적</small>
-        </button>
-      </section>
+      </p>
     </main>
   );
 }

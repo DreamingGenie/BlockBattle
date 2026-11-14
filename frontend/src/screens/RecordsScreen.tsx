@@ -25,7 +25,7 @@ export const MODE_TEXT: Record<string, string> = { SOLO: '싱글', AI: 'vs AI', 
 export const RESULT_TEXT: Record<string, string> = { WIN: '승', LOSE: '패', NONE: '-' };
 export const END_TEXT: Record<string, string> = {
   COMPLETED: '완료',
-  TOP_OUT: 'topout',
+  TOP_OUT: '천장 도달',
   DRAW: '무승부',
   LEFT: '퇴장',
   DISCONNECT: '연결 끊김',
@@ -38,9 +38,13 @@ export function formatDuration(ms: number | null): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-export function formatTime(iso: string | null): string {
+/** '11월 14일 15:44'(올해가 아니면 '2025년 11월 14일 15:44') */
+export function formatTime(iso: string | null, now: Date = new Date()): string {
   if (!iso) return '-';
-  return new Date(iso).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' });
+  const d = new Date(iso);
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const day = `${d.getMonth() + 1}월 ${d.getDate()}일 ${hm}`;
+  return d.getFullYear() === now.getFullYear() ? day : `${d.getFullYear()}년 ${day}`;
 }
 
 /** 최근 경기 목록(FR-REC-01, REQ-015): mode 필터·페이지. 응답을 서버가 준 순서 그대로 보여 준다 */
@@ -112,6 +116,7 @@ export function RecordsScreen() {
           {data.items.length === 0 ? (
             <p className="muted">아직 끝난 경기가 없습니다.</p>
           ) : (
+            <div className="table-wrap">
             <table>
               <thead>
                 <tr>
@@ -137,13 +142,14 @@ export function RecordsScreen() {
                           : `${m.opponent.nickname}#${m.opponent.tag}`}
                     </td>
                     <td>{m.status === 'ABORTED' ? '무효' : RESULT_TEXT[m.myResult]}</td>
-                    <td>{m.myScore.toLocaleString()}</td>
+                    <td className="num">{m.myScore.toLocaleString()}</td>
                     <td>{formatDuration(m.durationMs)}</td>
                     <td>{m.endReason ? END_TEXT[m.endReason] ?? m.endReason : '-'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           )}
           <div className="row" style={{ marginTop: 12 }}>
             <button className="secondary" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>

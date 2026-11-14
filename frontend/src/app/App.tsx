@@ -7,6 +7,8 @@ import { RoomEntryScreen } from '../screens/RoomEntryScreen';
 import { RoomScreen } from '../screens/RoomScreen';
 import { RecordsScreen } from '../screens/RecordsScreen';
 import { MatchDetailScreen } from '../screens/MatchDetailScreen';
+import { MobileNoticeScreen } from '../screens/MobileNoticeScreen';
+import { currentDevice, isMobileBrowser } from './device';
 import { navigate, useRoute, type Route } from './router';
 import { SessionProvider, useSession } from './session';
 
@@ -36,6 +38,8 @@ function Routed() {
 }
 
 export function App() {
+  // 세션 복원·로그인 API를 부르기 전에 판단한다(REQ-021)
+  if (isMobileBrowser(currentDevice())) return <MobileNoticeScreen />;
   return (
     <SessionProvider>
       <Routed />

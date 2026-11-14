@@ -70,6 +70,7 @@ export function MatchDetailScreen({ id }: { id: string }) {
             {data.endReason ? END_TEXT[data.endReason] ?? data.endReason : '-'}
             {data.ranked ? '' : ' · 랭킹 미반영'}
           </p>
+          <div className="table-wrap">
           <table>
             <thead>
               <tr>
@@ -102,6 +103,7 @@ export function MatchDetailScreen({ id }: { id: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         </section>
       )}
     </main>

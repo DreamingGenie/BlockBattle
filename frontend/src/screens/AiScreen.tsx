@@ -7,6 +7,7 @@ import { Game } from '../engine';
 import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
 import { applyActions, useKeyboard } from '../game/controls';
 import { InputState } from '../game/input';
+import { revealOnMount } from '../game/reveal';
 import { useGameLoop } from '../game/useGameLoop';
 import { aiResultBody, forwardAttacks } from '../game/versus';
 
@@ -163,9 +164,7 @@ export function AiScreen() {
           ← 로비
         </button>
         <strong>vs AI · {difficulty}</strong>
-        <span className="muted">
-          AI 수: 서버 {hud.server} · 대체 {hud.fallback}
-        </span>
+        <span />
       </header>
       <section className="play">
         <div className="board-wrap">
@@ -188,11 +187,14 @@ export function AiScreen() {
         </div>
       </section>
       {phase === 'result' && outcome && (
-        <section className="card result">
+        <section className="card result" ref={revealOnMount}>
           <h2>{outcome.win ? '승리!' : '패배'}</h2>
           <p className="muted">
             내 점수 {me.current?.score.toLocaleString()} · AI 점수 {ai.current?.score.toLocaleString()}
             {outcome.ranked ? '' : ' · 점수 검사에 걸려 기록에 표시만 됩니다'}
+          </p>
+          <p className="muted small">
+            AI 서버 응답 {hud.server}수 · 규칙 AI 대체 {hud.fallback}수
           </p>
           <div className="row">
             <button onClick={() => setRound((r) => r + 1)}>다시 하기</button>

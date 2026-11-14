@@ -62,9 +62,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: BoardScene, cell
   ctx.clearRect(0, 0, width, height);
 
   // 보드 바탕과 격자
-  ctx.fillStyle = '#0b0e1a';
+  ctx.fillStyle = '#0e0e10';
   ctx.fillRect(bx, 0, BOARD_WIDTH * cell, height);
-  ctx.strokeStyle = '#1c2140';
+  ctx.strokeStyle = '#222326';
   ctx.lineWidth = 1;
   for (let c = 1; c < BOARD_WIDTH; c++) {
     ctx.beginPath();
@@ -105,13 +105,13 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: BoardScene, cell
   // 대기 방해 줄 막대(보드 왼쪽 가장자리)
   const pending = Math.min(scene.pendingLines ?? 0, BOARD_HEIGHT - HIDDEN_ROWS);
   if (pending > 0) {
-    ctx.fillStyle = '#ff6b81';
+    ctx.fillStyle = '#e5534b';
     ctx.fillRect(bx - 5, height - pending * cell, 4, pending * cell);
   }
 
   if (!withSides) return;
   const mini = cell * 0.7;
-  ctx.fillStyle = '#9aa0c3';
+  ctx.fillStyle = '#9b9ca1';
   ctx.font = '13px sans-serif';
   ctx.fillText('HOLD', 4, 16);
   if (scene.hold) drawMini(ctx, scene.hold, 4, 28, mini, scene.holdUsed ? 0.35 : 1);

@@ -6,6 +6,7 @@ import { Game } from '../engine';
 import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
 import { applyActions, useKeyboard } from '../game/controls';
 import { InputState } from '../game/input';
+import { revealOnMount } from '../game/reveal';
 import { soloResultBody } from '../game/result';
 import { useGameLoop } from '../game/useGameLoop';
 
@@ -165,7 +166,7 @@ export function SoloScreen() {
         </aside>
       </section>
       {phase === 'result' && saved && (
-        <section className="card result">
+        <section className="card result" ref={revealOnMount}>
           <h2>게임 종료 — {game.current?.score.toLocaleString()}점</h2>
           <p>
             {saved.newBest ? <span className="ok">최고 점수 갱신!</span> : '최고 점수는 그대로입니다.'}{' '}

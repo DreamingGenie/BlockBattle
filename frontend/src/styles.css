@@ -1,15 +1,17 @@
 :root {
-  --bg: #0f1220;
-  --panel: #181c2f;
-  --panel-2: #20253d;
-  --line: #2c3254;
-  --text: #e8eaf6;
-  --muted: #9aa0c3;
-  --accent: #6c8cff;
-  --accent-2: #8f6cff;
-  --danger: #ff6b81;
-  --ok: #4cd6a0;
+  /* 중립 회색 바탕에 강조색은 하나(O 블록의 호박색)만 쓴다 */
+  --bg: #121314;
+  --panel: #1a1b1e;
+  --panel-2: #232428;
+  --line: #2f3035;
+  --text: #ececec;
+  --muted: #9b9ca1;
+  --accent: #f0b429;
+  --accent-ink: #1d1600;
+  --danger: #e5534b;
+  --ok: #57ab5a;
   color-scheme: dark;
+  accent-color: var(--accent);
 }
 
 * {
@@ -20,8 +22,9 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Pretendard', 'Noto Sans KR', system-ui, sans-serif;
+  font-family: system-ui, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
   font-size: 15px;
+  line-height: 1.5;
 }
 
 h1,
@@ -32,12 +35,20 @@ h3 {
 
 button {
   background: var(--accent);
-  color: #fff;
-  border: 0;
-  border-radius: 8px;
-  padding: 10px 16px;
+  color: var(--accent-ink);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 9px 16px;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 button:disabled {
@@ -47,13 +58,24 @@ button:disabled {
 
 button.secondary {
   background: var(--panel-2);
-  border: 1px solid var(--line);
+  color: var(--text);
+  border-color: var(--line);
+  font-weight: 500;
+}
+
+button.secondary:hover:not(:disabled) {
+  border-color: var(--muted);
 }
 
 button.link {
   background: none;
   color: var(--muted);
-  padding: 4px 8px;
+  padding: 4px 0;
+  font-weight: 400;
+}
+
+button.link:hover {
+  color: var(--text);
 }
 
 input,
@@ -61,8 +83,8 @@ select {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 4px;
+  padding: 9px 12px;
   font: inherit;
 }
 
@@ -99,7 +121,7 @@ th {
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 16px;
 }
 
@@ -134,19 +156,93 @@ th {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-button.big {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-start;
-  padding: 22px;
+/* 로비 모드 목록: 한 줄에 이름 · 설명 · 내 전적 */
+.wordmark {
   font-size: 18px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  letter-spacing: -0.01em;
 }
 
-button.big small {
+.modes {
+  list-style: none;
+  margin: 24px 0 8px;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.modes li {
+  border-bottom: 1px solid var(--line);
+}
+
+button.mode {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 16px;
+  align-items: baseline;
+  width: 100%;
+  padding: 18px 8px;
+  background: none;
+  color: var(--text);
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  font-weight: 400;
+}
+
+button.mode:hover {
+  background: var(--panel);
+}
+
+button.mode:hover .mode-name {
+  color: var(--accent);
+}
+
+.mode-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.mode-stat {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  button.mode {
+    grid-template-columns: 1fr auto;
+  }
+
+  .mode-desc {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.small {
   font-size: 13px;
-  opacity: 0.85;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.notice {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.address {
+  display: block;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  word-break: break-all;
+  font-size: 13px;
 }
 
 .topbar {
@@ -160,10 +256,9 @@ button.big small {
 
 .badge {
   font-size: 12px;
-  background: var(--panel-2);
   border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 2px 8px;
+  border-radius: 3px;
+  padding: 1px 6px;
   color: var(--muted);
 }
 
@@ -185,8 +280,8 @@ button.big small {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(10, 12, 24, 0.72);
-  border-radius: 12px;
+  background: rgba(14, 14, 15, 0.78);
+  border-radius: 6px;
   text-align: center;
 }
 
@@ -200,14 +295,17 @@ button.big small {
 
 .board-wrap {
   position: relative;
+  max-width: 100%;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 12px;
 }
 
 canvas.board {
   display: block;
+  max-width: 100%;
+  height: auto;
 }
 
 .hud {
@@ -225,6 +323,7 @@ canvas.board {
 
 .hud strong {
   font-size: 20px;
+  font-variant-numeric: tabular-nums;
 }
 
 .hud .keys {
