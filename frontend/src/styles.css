@@ -240,3 +240,11 @@ tr.mine td {
   color: var(--ok);
   font-weight: 600;
 }
+
+tr.clickable {
+  cursor: pointer;
+}
+
+tr.clickable:hover td {
+  background: var(--panel-2);
+}

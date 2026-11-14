@@ -81,14 +81,18 @@ public class MatchHistoryService {
     /** 참가자만 볼 수 있다. 없으면 MATCH_NOT_FOUND, 참가자가 아니면 NOT_PARTICIPANT */
     public MatchDetail detail(long userId, long matchId) {
         Map<String, Object> p = Map.of("id", matchId);
-        List<Map<String, Object>> rows = jdbc.queryForList("""
+        // 시각은 getTimestamp로 읽는다: queryForList가 주는 LocalDateTime을 JVM 시간대로 바꾸면 serverTimezone=UTC 연결에서 9시간 어긋난다(T-23에서 발견)
+        List<DetailRow> rows = jdbc.query("""
                 SELECT m.id, m.mode, m.status, m.end_reason, m.ai_difficulty, m.ranked, m.series_no, m.round_no,
                        m.attempt_no, m.started_at, m.ended_at, m.duration_ms, m.winner_user_id, r.room_code
                 FROM matches m LEFT JOIN game_rooms r ON r.id = m.room_id
-                WHERE m.id = :id""", p);
+                WHERE m.id = :id""", p, (rs, i) -> new DetailRow(rs.getString("mode"), rs.getString("status"),
+                rs.getString("end_reason"), rs.getString("ai_difficulty"), rs.getBoolean("ranked"), intOrNull(rs, "series_no"),
+                intOrNull(rs, "round_no"), intOrNull(rs, "attempt_no"), rs.getTimestamp("started_at"), rs.getTimestamp("ended_at"),
+                intOrNull(rs, "duration_ms"), longOrNull(rs, "winner_user_id"), rs.getString("room_code")));
         if (rows.isEmpty()) throw new ApiException(ErrorCode.MATCH_NOT_FOUND);
-        Map<String, Object> m = rows.get(0);
-        Integer durationMs = m.get("duration_ms") == null ? null : ((Number) m.get("duration_ms")).intValue();
+        DetailRow m = rows.get(0);
+        Integer durationMs = m.durationMs();
         List<PlayerDetail> players = jdbc.query("""
                 SELECT p.slot, p.player_type, p.user_id, u.nickname, u.tag, p.result, p.score, p.lines_cleared, p.level,
                        p.pieces_placed, p.attack_sent, p.attack_received, p.max_combo
@@ -101,25 +105,18 @@ public class MatchHistoryService {
         if (players.stream().noneMatch(pl -> pl.userId() != null && pl.userId() == userId)) {
             throw new ApiException(ErrorCode.NOT_PARTICIPANT);
         }
-        Room room = !"FRIEND".equals(m.get("mode")) ? null : new Room((String) m.get("room_code"),
-                ((Number) m.get("series_no")).intValue(), ((Number) m.get("round_no")).intValue(),
-                ((Number) m.get("attempt_no")).intValue());
-        return new MatchDetail(matchId, (String) m.get("mode"), (String) m.get("status"), (String) m.get("end_reason"),
-                (String) m.get("ai_difficulty"), Boolean.TRUE.equals(m.get("ranked")), room,
-                time(toTimestamp(m.get("started_at"))), time(toTimestamp(m.get("ended_at"))), durationMs,
-                m.get("winner_user_id") == null ? null : ((Number) m.get("winner_user_id")).longValue(), players);
+        Room room = !"FRIEND".equals(m.mode()) ? null : new Room(m.roomCode(), m.seriesNo(), m.roundNo(), m.attemptNo());
+        return new MatchDetail(matchId, m.mode(), m.status(), m.endReason(), m.aiDifficulty(), m.ranked(), room,
+                time(m.startedAt()), time(m.endedAt()), durationMs, m.winnerUserId(), players);
     }
 
     private static OffsetDateTime time(Timestamp t) {
         return t == null ? null : ApiTime.of(t.toInstant());
     }
 
-    /** queryForList는 DATETIME을 LocalDateTime으로 줄 수 있다(T-9 실측) */
-    private static Timestamp toTimestamp(Object value) {
-        if (value == null) return null;
-        if (value instanceof Timestamp t) return t;
-        if (value instanceof java.time.LocalDateTime l) return Timestamp.valueOf(l);
-        throw new IllegalStateException("시간 형식 오류: " + value.getClass());
+    private record DetailRow(String mode, String status, String endReason, String aiDifficulty, boolean ranked,
+                             Integer seriesNo, Integer roundNo, Integer attemptNo, Timestamp startedAt, Timestamp endedAt,
+                             Integer durationMs, Long winnerUserId, String roomCode) {
     }
 
     private static Long longOrNull(ResultSet rs, String column) throws SQLException {

@@ -5,6 +5,8 @@ import { SoloScreen } from '../screens/SoloScreen';
 import { AiScreen } from '../screens/AiScreen';
 import { RoomEntryScreen } from '../screens/RoomEntryScreen';
 import { RoomScreen } from '../screens/RoomScreen';
+import { RecordsScreen } from '../screens/RecordsScreen';
+import { MatchDetailScreen } from '../screens/MatchDetailScreen';
 import { navigate, useRoute, type Route } from './router';
 import { SessionProvider, useSession } from './session';
 
@@ -13,6 +15,8 @@ const screens: Partial<Record<Route['name'], (route: Route) => ReactElement>> = 
   lobby: () => <LobbyScreen />,
   solo: () => <SoloScreen />,
   ai: () => <AiScreen />,
+  records: () => <RecordsScreen />,
+  match: (route) => <MatchDetailScreen key={route.param} id={route.param ?? ''} />,
   room: (route) => (route.param ? <RoomScreen key={route.param} code={route.param} /> : <RoomEntryScreen />),
 };
 
