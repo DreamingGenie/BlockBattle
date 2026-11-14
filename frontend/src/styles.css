@@ -296,10 +296,11 @@ button.mode:hover .mode-name {
 .board-wrap {
   position: relative;
   max-width: 100%;
-  background: var(--panel);
+  background: #0f1012;
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 12px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
 }
 
 canvas.board {
@@ -322,8 +323,25 @@ canvas.board {
 }
 
 .hud strong {
-  font-size: 20px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+}
+
+/* 게임 화면 상단 소리·흔들림 설정(REQ-023) */
+.fx-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.fx-controls input[type='range'] {
+  width: 72px;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
 .hud .keys {

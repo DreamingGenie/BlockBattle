@@ -5,7 +5,9 @@ import { useSession } from '../app/session';
 import { AiController, requestServerMove, type Difficulty } from '../ai';
 import { Game } from '../engine';
 import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
-import { applyActions, useKeyboard } from '../game/controls';
+import { applyActions, inputSound, useKeyboard } from '../game/controls';
+import { FxControls } from '../game/FxControls';
+import { sfx } from '../game/sound';
 import { InputState } from '../game/input';
 import { revealOnMount } from '../game/reveal';
 import { useGameLoop } from '../game/useGameLoop';
@@ -59,6 +61,8 @@ export function AiScreen() {
         match.current = started;
         me.current = new Game(started.seed);
         ai.current = new Game(started.seed); // AI 보드도 같은 시드(FR-AI-03)
+        myBoard.current?.reset();
+        aiBoard.current?.reset();
         playMs.current = 0;
         ended.current = false;
         controller.current?.stop();
@@ -107,13 +111,23 @@ export function AiScreen() {
     const a = ai.current;
     if (!g || !a) return;
     if (phase === 'playing') {
-      applyActions(g, input.update(dt).filter((x) => x !== 'pause')); // vs AI는 일시정지 없음(GR-02)
+      applyActions(g, input.update(dt).filter((x) => x !== 'pause'), inputSound); // vs AI는 일시정지 없음(GR-02)
       g.tick(dt);
       playMs.current += dt;
       const myEvents = g.drainEvents();
       const aiEvents = a.drainEvents();
       forwardAttacks(myEvents, a);
       forwardAttacks(aiEvents, g);
+      // 연출(REQ-023): 내 보드는 전부, AI 보드는 게임 오버 회색 처리만
+      for (const e of myEvents) {
+        if (e.type === 'lock') myBoard.current?.lock(e, g.combo);
+        else myBoard.current?.topout();
+      }
+      if (aiEvents.some((e) => e.type === 'lock' && e.result.sent > 0)) myBoard.current?.garbage();
+      if (aiEvents.some((e) => e.type === 'topout') && !myEvents.some((e) => e.type === 'topout')) {
+        aiBoard.current?.topout();
+        sfx.win();
+      }
       if (myEvents.length || aiEvents.length) {
         const decisions = controller.current?.decisions ?? [];
         setHud({
@@ -164,12 +178,12 @@ export function AiScreen() {
           ← 로비
         </button>
         <strong>vs AI · {difficulty}</strong>
-        <span />
+        <FxControls />
       </header>
       <section className="play">
         <div className="board-wrap">
           <p className="muted">나 · {hud.me.toLocaleString()}점</p>
-          <BoardCanvas ref={myBoard} label="내 보드" />
+          <BoardCanvas ref={myBoard} label="내 보드" sound />
           {phase === 'starting' && <div className="overlay">경기를 준비하는 중…</div>}
           {phase === 'saving' && <div className="overlay">결과를 저장하는 중…</div>}
           {phase === 'error' && (

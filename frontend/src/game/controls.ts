@@ -1,29 +1,43 @@
 import { useEffect } from 'react';
 import type { Game } from '../engine';
 import { GAME_KEYS, InputState, type Action } from './input';
+import { sfx } from './sound';
 
-/** 동작 목록을 엔진에 반영한다. 'pause'는 엔진에 넘기지 않고 돌려준다(싱글만 쓴다) */
-export function applyActions(game: Game, actions: Action[]): { pause: boolean } {
+/** 성공한 조작의 효과음(내 보드 전용) */
+export function inputSound(action: Action): void {
+  if (action === 'left' || action === 'right') sfx.move();
+  else if (action === 'rotateCW' || action === 'rotateCCW') sfx.rotate();
+  else if (action === 'hold') sfx.hold();
+}
+
+/**
+ * 동작 목록을 엔진에 반영한다. 'pause'는 엔진에 넘기지 않고 돌려준다(싱글만 쓴다).
+ * onApplied는 이동·회전·홀드가 실제로 성공했을 때 불린다(효과음용, REQ-023). 엔진 결과에는 영향이 없다.
+ */
+export function applyActions(game: Game, actions: Action[], onApplied?: (action: Action) => void): { pause: boolean } {
   let pause = false;
+  const ok = (action: Action, done: boolean) => {
+    if (done) onApplied?.(action);
+  };
   for (const action of actions) {
     switch (action) {
       case 'left':
-        game.moveLeft();
+        ok(action, game.moveLeft());
         break;
       case 'right':
-        game.moveRight();
+        ok(action, game.moveRight());
         break;
       case 'rotateCW':
-        game.rotateCW();
+        ok(action, game.rotateCW());
         break;
       case 'rotateCCW':
-        game.rotateCCW();
+        ok(action, game.rotateCCW());
         break;
       case 'hardDrop':
         game.hardDrop();
         break;
       case 'hold':
-        game.holdPiece();
+        ok(action, game.holdPiece());
         break;
       case 'softDropOn':
         game.setSoftDrop(true);

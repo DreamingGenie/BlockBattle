@@ -1,7 +1,8 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Game, boardFromString, emptyBoard, type Board } from '../engine';
 import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
-import { applyActions, useKeyboard } from '../game/controls';
+import { applyActions, inputSound, useKeyboard } from '../game/controls';
+import { sfx } from '../game/sound';
 import { lockMessage, restoreArgs, REASON_TEXT, type GameOverPayload, type ResyncPayload } from '../game/friend';
 import { InputState } from '../game/input';
 import { useGameLoop } from '../game/useGameLoop';
@@ -56,6 +57,8 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
       finished.current = false;
       resyncing.current = false;
       opponent.current = { board: emptyBoard(), score: 0 };
+      myBoard.current?.reset();
+      oppBoard.current?.reset();
       setRound(c);
       setOver(null);
       setRematch({});
@@ -71,10 +74,19 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
       }
     },
     attack(p) {
-      if (p.toUserId === myId) game.current?.receiveGarbage({ lines: p.lines, holeColumn: p.holeColumn });
+      if (p.toUserId === myId) {
+        game.current?.receiveGarbage({ lines: p.lines, holeColumn: p.holeColumn });
+        myBoard.current?.garbage();
+      }
     },
     gameOver(p) {
       finished.current = true;
+      if (p.winnerUserId === myId) {
+        oppBoard.current?.topout();
+        sfx.win();
+      } else if (p.winnerUserId !== null) {
+        myBoard.current?.topout();
+      }
       setOver(p);
     },
     rematchChanged(p) {
@@ -97,6 +109,8 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
         // 페이지를 새로 열었다: RESYNC의 시드로 같은 블록 순서를 다시 만들어 바로 이어 한다(POL-006 v2)
         g = new Game(p.seed);
         game.current = g;
+        myBoard.current?.reset();
+        oppBoard.current?.reset();
         matchId.current = p.matchId;
         startsAt.current = 0;
         finished.current = false;
@@ -127,12 +141,15 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
     if (!g) return;
     const live = Date.now() >= startsAt.current && !finished.current && !resyncing.current && connected;
     if (live) {
-      applyActions(g, input.update(dt).filter((a) => a !== 'pause')); // 친구 대전은 일시정지 없음(GR-02)
+      applyActions(g, input.update(dt).filter((a) => a !== 'pause'), inputSound); // 친구 대전은 일시정지 없음(GR-02)
       g.tick(dt);
       for (const event of g.drainEvents()) {
-        if (event.type === 'lock') send(`/app/rooms/${code}/lock`, lockMessage(event));
-        else if (event.type === 'topout') {
+        if (event.type === 'lock') {
+          send(`/app/rooms/${code}/lock`, lockMessage(event));
+          myBoard.current?.lock(event, g.combo); // 연출은 전송 뒤, 보낸 값에는 영향 없음(REQ-023)
+        } else if (event.type === 'topout') {
           finished.current = true;
+          myBoard.current?.topout();
           send(`/app/rooms/${code}/topout`, { seq: g.seq });
         }
       }
@@ -144,9 +161,21 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
     oppBoard.current?.draw({ board: opponent.current.board, current: null, ghost: false });
   }, !!round);
 
+  const startIn = round ? Math.ceil((startsAt.current - now) / 1000) : 99;
+  const lastBeep = useRef<number | null>(null);
+  useEffect(() => {
+    // 카운트다운 3·2·1·시작 효과음. 이어 하기(startsAt 0)에는 울리지 않는다
+    if (!round || over || startsAt.current === 0) return;
+    const n = Math.max(0, startIn);
+    if (n <= 3 && lastBeep.current !== n) {
+      lastBeep.current = n;
+      sfx.countdown(n);
+    }
+    if (n > 3) lastBeep.current = null;
+  }, [round, over, startIn]);
+
   if (!round) return null;
   const opponentId = Object.keys(names).map(Number).find((id) => id !== myId);
-  const startIn = Math.ceil((startsAt.current - now) / 1000);
   const nextIn = over?.nextRoundStartsAt ? Math.max(0, Math.ceil((over.nextRoundStartsAt - now) / 1000)) : null;
   const iWon = over?.winnerUserId === myId;
   const seriesDone = over?.seriesWinnerUserId != null;
@@ -165,7 +194,7 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
           <p className="muted">
             나 · {scores.me.toLocaleString()}점
           </p>
-          <BoardCanvas ref={myBoard} label="내 보드" />
+          <BoardCanvas ref={myBoard} label="내 보드" sound />
           {startIn > 0 && !over && <div className="overlay"><h1>{startIn}</h1></div>}
         </div>
         <div className="board-wrap">

@@ -5,6 +5,7 @@ import { useSession } from '../app/session';
 import { useRoomConnection, type PersonalError, type RoomView } from '../realtime/room';
 import type { WsMessage } from '../realtime/stomp';
 import type { GameOverPayload, ResyncPayload } from '../game/friend';
+import { FxControls } from '../game/FxControls';
 import { MatchPanel, type MatchPanelHandle } from './MatchPanel';
 
 export interface Countdown {
@@ -144,7 +145,10 @@ export function RoomScreen({ code }: { code: string }) {
           ← {participant ? '나가기' : '로비'}
         </button>
         <strong>친구 대전 · {code}</strong>
-        <span className="muted">{participant && !closed ? (connection.connected ? '연결됨' : '연결 중…') : ''}</span>
+        <span className="row">
+          {participant && !closed && <FxControls />}
+          <span className="muted small">{participant && !closed ? (connection.connected ? '연결됨' : '연결 중…') : ''}</span>
+        </span>
       </header>
 
       {closed && (

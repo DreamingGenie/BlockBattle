@@ -4,7 +4,8 @@ import { navigate } from '../app/router';
 import { useSession } from '../app/session';
 import { Game } from '../engine';
 import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
-import { applyActions, useKeyboard } from '../game/controls';
+import { applyActions, inputSound, useKeyboard } from '../game/controls';
+import { FxControls } from '../game/FxControls';
 import { InputState } from '../game/input';
 import { revealOnMount } from '../game/reveal';
 import { soloResultBody } from '../game/result';
@@ -59,6 +60,7 @@ export function SoloScreen() {
         if (currentRound.current !== round) return;
         match.current = started;
         game.current = new Game(started.seed);
+        board.current?.reset();
         playMs.current = 0;
         setHud({ score: 0, lines: 0, level: 1 });
         setPhase('playing');
@@ -95,13 +97,17 @@ export function SoloScreen() {
     if (phase === 'paused') {
       if (actions.includes('pause')) setPhase('playing');
     } else if (phase === 'playing') {
-      const { pause } = applyActions(g, actions);
+      const { pause } = applyActions(g, actions, inputSound);
       if (pause) {
         setPhase('paused');
       } else {
         g.tick(dt);
         playMs.current += dt; // 일시정지 시간은 플레이 시간에 넣지 않는다
         const events = g.drainEvents();
+        for (const e of events) {
+          if (e.type === 'lock') board.current?.lock(e, g.combo);
+          else board.current?.topout();
+        }
         if (events.some((e) => e.type === 'lock')) setHud({ score: g.score, lines: g.linesCleared, level: g.level });
         if (events.some((e) => e.type === 'topout')) finish();
       }
@@ -123,11 +129,14 @@ export function SoloScreen() {
           ← 로비
         </button>
         <strong>싱글</strong>
-        <span className="muted">Esc 일시정지</span>
+        <span className="row">
+          <FxControls />
+          <span className="muted small">Esc 일시정지</span>
+        </span>
       </header>
       <section className="play">
         <div className="board-wrap">
-          <BoardCanvas ref={board} label="내 보드" />
+          <BoardCanvas ref={board} label="내 보드" sound />
           {phase === 'starting' && <div className="overlay">경기를 준비하는 중…</div>}
           {phase === 'paused' && (
             <div className="overlay">
