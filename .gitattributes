@@ -1,0 +1,4 @@
+# 서버(리눅스)에서 실행·마운트되는 배포 파일은 체크아웃 때도 LF로 둔다(autocrlf=true에서 CRLF가 되면 bash·nginx가 깨진다)
+deploy/** text eol=lf
+*.sh text eol=lf
+**/Dockerfile text eol=lf

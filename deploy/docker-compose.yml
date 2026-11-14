@@ -1,0 +1,77 @@
+# 운영 배포(T-29): EC2 1대에 MySQL·Redis·백엔드·AI·nginx. 외부에는 nginx의 80·443만 연다.
+# 비밀값은 같은 폴더의 .env(서버에서만 만든다, .env.example 참고)에서 읽는다.
+name: block-battle
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: block_battle
+      MYSQL_USER: block_battle
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD}
+      TZ: UTC
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--innodb-buffer-pool-size=256M"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  backend:
+    build: ../backend
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/block_battle?serverTimezone=UTC&characterEncoding=UTF-8
+      DB_USERNAME: block_battle
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      PUBLIC_BASE_URL: https://${PUBLIC_HOST:?PUBLIC_HOST}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ai:
+    build:
+      context: ..
+      dockerfile: ai/Dockerfile
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ../frontend/dist:/usr/share/nginx/html:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      - backend
+      - ai
+
+volumes:
+  mysql-data:
+  redis-data:

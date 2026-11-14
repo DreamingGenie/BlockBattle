@@ -63,6 +63,30 @@ cd frontend && npm install && npm run dev
 
 환경 변수(선택): `JWT_SECRET`(백엔드·AI가 같은 값), `PUBLIC_BASE_URL`(초대 링크 주소, 기본 `http://localhost:5173`), 프론트 프록시 대상 `BACKEND_URL`·`AI_URL`.
 
+## 배포 (AWS EC2 1대)
+
+기획서의 배포 구성대로 EC2 한 대에 Docker Compose로 MySQL·Redis·백엔드·AI·nginx를 올린다. 외부에는 nginx의 80·443만 열고, nginx가 프론트 정적 파일과 `/api`·`/ws`(WebSocket)·`/ai`를 같은 출처로 받는다. Refresh 쿠키가 `Secure`라 HTTPS가 필요해서, 도메인 없이 `{공인IP를 -로 이은 것}.sslip.io` 주소에 Let's Encrypt 인증서를 붙인다.
+
+| 파일 | 내용 |
+| --- | --- |
+| `deploy/docker-compose.yml` | 운영 서비스 5개. 비밀값은 서버의 `deploy/.env`에서 읽는다 |
+| `deploy/nginx.conf.template` | HTTPS·프록시·초대 링크(`/room/{code}`) 대체 |
+| `deploy/server-setup.sh` | 서버 처음 한 번: Docker·certbot 설치, swap 2GB, `.env` 무작위 비밀값 생성, 인증서 발급·갱신 훅 |
+| `deploy/deploy.sh` | 로컬에서 jar·프론트를 빌드해 서버로 올리고 기동 |
+| `backend/Dockerfile`, `ai/Dockerfile` | 운영 이미지 |
+
+**1. EC2 만들기** — Ubuntu 24.04, t3.medium(2 vCPU·4GB, NFR-02 기준 사양), 디스크 20GB. 보안 그룹은 22(내 IP)·80·443만 연다. 탄력적 IP를 붙여 두면 껐다 켜도 주소가 같다.
+
+**2. 배포** — Git Bash에서 실행한다. 처음이면 서버 준비까지 한 번에 한다.
+
+```bash
+bash deploy/deploy.sh <공인 IP> <키 파일.pem>
+```
+
+끝나면 `https://<공인 IP의 .을 -로>.sslip.io`로 접속한다. 다시 배포할 때도 같은 명령을 쓴다(비밀값·인증서·DB 데이터는 그대로 남는다).
+
+운영 비밀값(`JWT_SECRET`, DB 비밀번호)은 서버의 `deploy/.env`(권한 600)에만 있고 저장소에는 `deploy/.env.example`만 있다.
+
 ## 시험
 
 ```bash
