@@ -40,8 +40,32 @@ def is_blocked(board: Board, row: int, col: int) -> bool:
     return bool(board[row] >> col & 1)
 
 
+def _row_masks(shape: list[tuple[int, int]]) -> tuple[int, int, int, int, tuple[tuple[int, int], ...]]:
+    """(최소 열, 최대 열, 최소 행, 최대 행, ((행 오프셋, 열 비트마스크), ...))"""
+    rows: dict[int, int] = {}
+    for r, c in shape:
+        rows[r] = rows.get(r, 0) | 1 << c
+    cols = [c for _, c in shape]
+    return min(cols), max(cols), min(rows), max(rows), tuple(sorted(rows.items()))
+
+
+# 탐색이 fits를 수만 번 부르므로 칸 단위 대신 행 단위 비트 AND로 판정한다(T-24). 막힘 조건은 is_blocked와 같다
+_MASKS = {piece: [_row_masks(rotation) for rotation in rotations] for piece, rotations in SHAPES.items()}
+
+
 def fits(board: Board, piece: str, rotation: int, x: int, y: int) -> bool:
-    return not any(is_blocked(board, r, c) for r, c in cells(piece, rotation, x, y))
+    min_c, max_c, min_r, max_r, rows = _MASKS[piece][rotation]
+    if x + min_c < 0 or x + max_c >= WIDTH or y + min_r < 0 or y + max_r >= HEIGHT:
+        return False
+    if x >= 0:
+        for dr, mask in rows:
+            if board[y + dr] & (mask << x):
+                return False
+    else:
+        for dr, mask in rows:
+            if board[y + dr] & (mask >> -x):
+                return False
+    return True
 
 
 def kicks(piece: str, src: int, dst: int) -> list[tuple[int, int]]:

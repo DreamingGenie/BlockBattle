@@ -54,17 +54,31 @@ def placements(board: rules.Board, piece: str, allow_soft_drop: bool) -> list[Pl
             state = prev
         return actions[::-1]
 
+    # (rot, x, y) → 떨어진 y. drop_y(y) == drop_y(y + 1) (y + 1에 들어갈 때)라서 같은 열을 다시 내려가지 않는다(T-24)
+    landings: dict[tuple[int, int, int], int] = {}
+
+    def land(rot, x, y):
+        walked = []
+        while (rot, x, y) not in landings and rules.fits(board, piece, rot, x, y + 1):
+            walked.append(y)
+            y += 1
+        result = landings.get((rot, x, y), y)
+        for wy in walked:
+            landings[(rot, x, wy)] = result
+        landings[(rot, x, y)] = result
+        return result
+
     while queue:
         state = queue.popleft()
         rot, x, y = state
-        actions = path_to(state)
-        landing = rules.drop_y(board, piece, rot, x, y)
-        last_rotate = landing == y and bool(actions) and actions[-1] in ("CW", "CCW")
+        landing = land(rot, x, y)
+        # 마지막 동작은 부모 기록에서 바로 읽고, 입력 경로는 새 고정 자리일 때만 복원한다(T-24)
+        last_rotate = landing == y and parent[state][1] in ("CW", "CCW")
         key = (rot, x, landing, last_rotate and piece == "T")
         if key not in found:
             tspin = rules.is_tspin(board, piece, rot, x, landing, last_rotate)
             after, lines = rules.clear_lines(rules.place(board, piece, rot, x, landing))
-            found[key] = Placement(piece, rot, x, landing, tuple(actions + ["HARD_DROP"]), tspin, tuple(after), lines)
+            found[key] = Placement(piece, rot, x, landing, tuple(path_to(state) + ["HARD_DROP"]), tspin, tuple(after), lines)
 
         nexts = [("LEFT", (rot, x - 1, y)), ("RIGHT", (rot, x + 1, y))]
         for action, clockwise in (("CW", True), ("CCW", False)):
