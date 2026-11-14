@@ -1,6 +1,6 @@
 # 테트리스 대전 게임 — API 명세서
 
-개정 2판 · 2026-11-12 · 작성 오션(팀장)
+개정 3판 · 2026-11-14 · 작성 오션(팀장) · 3판 변경: 5.2 lock 드롭 칸 수(POL-005), 5.7 RESYNC 시드·내 성적(POL-006), 6장 NOT_FOUND·METHOD_NOT_ALLOWED(POL-026)
 
 ## 1. 공통 규칙
 
@@ -288,10 +288,13 @@ payload: { "ready": true }. WAITING 방이나 라운드 사이 대기 중에만 
 
 ```json
 { "seq": 57, "piece": "T", "rotation": 2, "x": 4, "y": 18,
-  "holdUsed": false, "lastMove": "ROTATE", "linesCleared": 2 }
+  "holdUsed": false, "lastMove": "ROTATE", "linesCleared": 2,
+  "softDropCells": 3, "hardDropCells": 12 }
 ```
 
 seq는 플레이어별로 1부터 1씩 는다. 직전 seq와 같으면 무시하고, 건너뛰면 INVALID_LOCK을 보낸다. y는 맨 위 행을 0으로 센 블록 기준점의 행이다. lastMove는 ROTATE·MOVE·DROP 중 하나이며 T-스핀 판정에 쓴다. 서버는 요구사항 BR-05로 검증·재계산한 뒤 BOARD를 방송하고, 상쇄 뒤 남은 공격이 있으면 ATTACK을 보낸다. 맞지 않으면 보낸 사람에게만 /user/queue/errors로 INVALID_LOCK을 보낸다.
+
+softDropCells·hardDropCells는 이 블록이 소프트 드롭·하드 드롭으로 내려온 칸 수이며 서버는 GR-07 ④ 드롭 점수(소프트 칸당 1, 하드 칸당 2)에만 쓴다(POL-005). 두 값의 합은 y − 생성 y(0)를 넘을 수 없고, 넘으면 하드 칸부터 상한까지 잘라낸다. 음수·정수 아님·필드 없음은 0으로 본다. 이 두 값 때문에 INVALID_LOCK을 보내지는 않는다.
 
 ### 5.3 SEND /app/rooms/{code}/topout — 게임오버 알림
 
@@ -334,8 +337,11 @@ INVALID_LOCK이면 클라이언트는 payload의 서버 보드로 바꾸고 next
 ```json
 { "type": "RESYNC", "payload": { "matchId": 402, "seq": 57, "pieceIndex": 61, "hold": "I",
   "holdUsed": false, "board": "220자", "pendingGarbage": [ { "lines": 2, "holeColumn": 3 } ],
-  "opponent": { "userId": 31, "board": "220자", "score": 9800 } } }
+  "opponent": { "userId": 31, "board": "220자", "score": 9800 },
+  "seed": 551203, "me": { "score": 12400, "linesCleared": 41, "level": 5, "combo": 1, "b2b": true } } }
 ```
+
+seed는 경기 시드(COUNTDOWN과 같은 값), me는 서버 진행 상태 원본의 내 성적이다(POL-006). 페이지를 새로 연 클라이언트는 seed와 pieceIndex로 블록 순서를 다시 만들고 me로 성적 표시를 복원해 경기를 이어 한다.
 
 ### 5.8 친구 대전 한 판의 흐름
 
@@ -363,6 +369,8 @@ INVALID_LOCK이면 클라이언트는 payload의 서버 보드로 바꾸고 next
 | ROOM_NOT_FOUND | 404 | 없거나 닫힌 게임 코드 |
 | MATCH_NOT_FOUND | 404 | 없는 경기 |
 | KAKAO_NOT_LINKED | 404 | 연결된 회원이 없는 카카오 계정 |
+| NOT_FOUND | 404 | 2.1 API 목록의 어떤 경로에도 매핑되지 않는 요청 |
+| METHOD_NOT_ALLOWED | 405 | 경로는 있으나 지원하지 않는 HTTP 메서드(Allow 헤더로 지원 메서드를 알린다) |
 | NICKNAME_TAG_EXHAUSTED | 409 | 그 닉네임의 태그가 모두 쓰임 |
 | ROOM_FULL | 409 | 정원(2명) 초과 |
 | ROOM_ALREADY_PLAYING | 409 | WAITING이 아닌 방 |
@@ -372,3 +380,5 @@ INVALID_LOCK이면 클라이언트는 payload의 서버 보드로 바꾸고 next
 | ACCOUNT_ALREADY_LINKED | 409 | 이미 카카오가 연결된 계정 |
 | INVALID_LOCK | - (WS) | 서버 검증·재계산과 맞지 않는 lock |
 | INTERNAL_ERROR | 500 | 서버 오류 |
+
+NOT_FOUND·METHOD_NOT_ALLOWED는 요청이 정의된 API에 닿지 못한 경우에만 쓰고 서버 오류로 기록하지 않는다. 정의된 API 안에서 자원을 찾지 못한 경우는 ROOM_NOT_FOUND·MATCH_NOT_FOUND·KAKAO_NOT_LINKED를 그대로 쓴다. Access 토큰이 필요한 /api/v1 아래 경로는 인증 검사가 먼저라, 토큰이 없거나 위조면 경로와 상관없이 UNAUTHORIZED(401)가 나간다(POL-026).
