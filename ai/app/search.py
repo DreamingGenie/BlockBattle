@@ -5,8 +5,8 @@
   (T-35: 난이도를 한 단계씩 쉽게 옮겼다 — 옛 EASY=지금 NORMAL, 옛 NORMAL=지금 HARD, 옛 HARD=지금 IMPOSSIBLE)
 - 깊이: EASY·NORMAL 1수, HARD·IMPOSSIBLE 2수(다음 블록까지, 상위 BEAM개만 펼침). 소프트 드롭·T-스핀은 IMPOSSIBLE만.
 - 실수: EASY만 EASY_MISTAKE_RATE 확률로 두 번째로 좋은 수를 둔다(rng를 넘기면 그것을 쓴다). 나머지는 결정론적이다.
-- VERY_EASY(T-41): 홀드를 쓰지 않고 다음 블록도 보지 않는다. VERY_EASY_RANDOM_RATE 확률로 놓을 수 있는 자리 중 아무 데나 둔다.
-  초보도 이길 수 있게 스스로 쌓다가 천장에 닿는 것이 목표다.
+- VERY_EASY(T-41, T-43): 홀드를 쓰지 않고 다음 블록도 보지 않는다. VERY_EASY_MISTAKE_RATE 확률로 평가 상위 VERY_EASY_TOP_K개 중
+  하나를 고른다(아무 데나 두면 막 던지는 것처럼 보여서, 그럴듯한 자리 안에서만 실수한다). 혼자 쌓아도 70~130블록이면 천장에 닿는다.
 - 평가: GR-09 가중치 + T-스핀(IMPOSSIBLE)·방해 줄 대기 시 줄 삭제 가산점.
 """
 from __future__ import annotations
@@ -22,7 +22,8 @@ W_HEIGHT, W_LINES, W_HOLES, W_BUMP = -0.51, 0.76, -0.36, -0.18
 TSPIN_BONUS_PER_LINE = 2.0
 GARBAGE_CLEAR_BONUS_PER_LINE = 0.5
 EASY_MISTAKE_RATE = 0.3
-VERY_EASY_RANDOM_RATE = 0.5
+VERY_EASY_MISTAKE_RATE = 0.6
+VERY_EASY_TOP_K = 6
 
 
 @dataclass(frozen=True)
@@ -164,8 +165,8 @@ def choose(board: rules.Board, difficulty: str, current: str, hold: str | None, 
 
     ranked = sorted(first_moves, key=lambda m: (-m[0], m[1]))
     best = ranked[0]
-    if difficulty == "VERY_EASY" and (rng or random).random() < VERY_EASY_RANDOM_RATE:
-        best = ranked[(rng or random).randrange(len(ranked))]
+    if difficulty == "VERY_EASY" and (rng or random).random() < VERY_EASY_MISTAKE_RATE:
+        best = ranked[(rng or random).randrange(min(VERY_EASY_TOP_K, len(ranked)))]
     if difficulty == "EASY" and len(ranked) > 1 and (rng or random).random() < EASY_MISTAKE_RATE:
         best = ranked[1]
     return Move(best[2], best[3], best[0])

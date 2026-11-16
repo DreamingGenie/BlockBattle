@@ -11,7 +11,7 @@ export const AI_INPUTS: readonly AiInput[] = ['LEFT', 'RIGHT', 'CW', 'CCW', 'SOF
 export const REPLAY_INTERVAL_MS: Record<Difficulty, number> = { VERY_EASY: 400, EASY: 300, NORMAL: 300, HARD: 150, IMPOSSIBLE: 60 };
 
 /** 블록이 나온 뒤 고정까지 걸리는 최소 시간(T-35). 사람이 따라갈 수 있게 AI가 바로바로 놓지 않게 한다. 0이면 제한 없음 */
-export const MIN_PIECE_MS: Record<Difficulty, number> = { VERY_EASY: 3000, EASY: 2000, NORMAL: 1500, HARD: 1000, IMPOSSIBLE: 0 };
+export const MIN_PIECE_MS: Record<Difficulty, number> = { VERY_EASY: 2500, EASY: 2000, NORMAL: 1500, HARD: 1000, IMPOSSIBLE: 0 };
 
 /** AI 서버 응답 대기 한도(FR-AI-02) */
 export const SERVER_TIMEOUT_MS = 150;

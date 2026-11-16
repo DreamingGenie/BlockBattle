@@ -168,13 +168,15 @@ def test_easy_sometimes_plays_second_best():
     assert 30 <= mistakes <= 90
 
 
-def test_very_easy_never_holds_and_often_plays_random():
-    """T-41: VERY_EASY는 홀드를 쓰지 않고 절반쯤 아무 자리에나 둔다. 깨지면 초보가 이길 수 없을 만큼 강해진다"""
+def test_very_easy_never_holds_and_errs_only_among_top_moves():
+    """T-43: VERY_EASY는 홀드를 쓰지 않고, 실수해도 평가 상위 6개 안에서만 고른다. 깨지면 막 던지거나(너무 멍청함) 너무 강해진다"""
     import random
     from app import rules, search
     board = rules.board_from_grid(grid(["G000000000", "GG0G000GGG"]))
-    best = search.choose(board, "NORMAL", "T", None, False, ["I"], 0).placement
+    ranked = sorted(search.placements(board, "T", False), key=lambda p: -(search.step_bonus(p, 0, False) + search.evaluate(p.board_after)))
+    top = set(ranked[:search.VERY_EASY_TOP_K])
     moves = [search.choose(board, "VERY_EASY", "T", "I", True, ["I", "O"], 0, rng=random.Random(i)) for i in range(200)]
     assert not any(m.use_hold for m in moves)
-    off = sum(m.placement != best for m in moves)
+    assert all(m.placement in top for m in moves)
+    off = sum(m.placement != ranked[0] for m in moves)
     assert 60 <= off <= 140
