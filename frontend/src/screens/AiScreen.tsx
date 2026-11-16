@@ -67,7 +67,7 @@ export function AiScreen() {
         myBoard.current?.reset();
         aiBoard.current?.reset();
         playMs.current = 0;
-        input.presses = 0;
+        input.resetCounters();
         ended.current = false;
         controller.current?.stop();
         controller.current = new AiController(ai.current, difficulty, {
@@ -96,7 +96,7 @@ export function AiScreen() {
       if (!m || !me.current || !ai.current) return;
       setPhase('saving');
       try {
-        const saved = await api.post<{ ranked: boolean; botSuspected?: boolean }>(`/matches/${m.matchId}/result`, aiResultBody(me.current, ai.current, win, playMs.current, input.presses), { retryUnavailable: true });
+        const saved = await api.post<{ ranked: boolean; botSuspected?: boolean }>(`/matches/${m.matchId}/result`, aiResultBody(me.current, ai.current, win, playMs.current, input.presses, input.stats.summary(input.presses, me.current.piecesPlaced)), { retryUnavailable: true });
         setOutcome({ win, ranked: saved.ranked, bot: saved.botSuspected === true, matchId: m.matchId });
         reloadMe().catch(() => {});
         setPhase('result');
@@ -119,6 +119,7 @@ export function AiScreen() {
       g.tick(dt);
       playMs.current += dt;
       const myEvents = g.drainEvents();
+      if (myEvents.some((e) => e.type === 'lock')) input.stats.lock(performance.now());
       const aiEvents = a.drainEvents();
       forwardAttacks(myEvents, a);
       forwardAttacks(aiEvents, g);

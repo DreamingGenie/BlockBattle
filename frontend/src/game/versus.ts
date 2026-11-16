@@ -1,4 +1,5 @@
 import { BOARD_WIDTH, type Game, type GameEvent } from '../engine';
+import type { InputStats } from './inputStats';
 
 /**
  * vs AI 공격 교환(GR-08, T-20). 한쪽 lock 결과에서 상쇄 뒤 남은 공격(sent)을 상대 대기열에 한 묶음으로 넣는다.
@@ -15,7 +16,7 @@ export function forwardAttacks(events: GameEvent[], target: Game, rand: () => nu
 }
 
 /** POST /matches/{id}/result 본문(API 명세 3.9) — vs AI는 승패와 양쪽 성적(공격 보냄·받음 포함) */
-export function aiResultBody(me: Game, ai: Game, win: boolean, durationMs: number, keyPresses?: number) {
+export function aiResultBody(me: Game, ai: Game, win: boolean, durationMs: number, keyPresses?: number, inputStats?: InputStats) {
   const stats = (g: Game) => ({
     score: g.score,
     linesCleared: g.linesCleared,
@@ -25,5 +26,5 @@ export function aiResultBody(me: Game, ai: Game, win: boolean, durationMs: numbe
     attackReceived: g.attackReceived,
     maxCombo: Math.max(0, g.maxCombo),
   });
-  return { result: win ? 'WIN' : 'LOSE', durationMs: Math.round(durationMs), keyPresses, player: stats(me), ai: stats(ai) };
+  return { result: win ? 'WIN' : 'LOSE', durationMs: Math.round(durationMs), keyPresses, inputStats, player: stats(me), ai: stats(ai) };
 }

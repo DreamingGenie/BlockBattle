@@ -65,7 +65,7 @@ export function SoloScreen() {
         game.current = new Game(started.seed);
         board.current?.reset();
         playMs.current = 0;
-        input.presses = 0;
+        input.resetCounters();
         setHud({ score: 0, lines: 0, level: 1 });
         setPhase('playing');
       } catch (e) {
@@ -82,7 +82,7 @@ export function SoloScreen() {
     setPhase('saving');
     try {
       // 결과는 경기당 한 번만 저장한다(API-009, 두 번째는 서버가 거부)
-      setSaved(await api.post<Saved>(`/matches/${m.matchId}/result`, soloResultBody(g, playMs.current, input.presses), { retryUnavailable: true }));
+      setSaved(await api.post<Saved>(`/matches/${m.matchId}/result`, soloResultBody(g, playMs.current, input.presses, input.stats.summary(input.presses, g.piecesPlaced)), { retryUnavailable: true }));
       setRanking(await api.get<Ranking>('/rankings/solo'));
       reloadMe().catch(() => {});
       setPhase('result');
@@ -108,6 +108,7 @@ export function SoloScreen() {
         g.tick(dt);
         playMs.current += dt; // 일시정지 시간은 플레이 시간에 넣지 않는다
         const events = g.drainEvents();
+        if (events.some((e) => e.type === 'lock')) input.stats.lock(performance.now());
         for (const e of events) {
           if (e.type === 'lock') board.current?.lock(e, g.combo);
           else board.current?.topout();

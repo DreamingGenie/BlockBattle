@@ -155,6 +155,10 @@ REST 응답은 모두 같은 봉투로 감싼다. 성공이면 success = true, e
 
 본인이 시작한 PLAYING 경기에만 한 번 저장할 수 있다. 서버는 요구사항 BR-07로 상한을 검사하고, BR-09로 전적을 갱신한다.
 
+봇 판정(T-39·T-40): 요청에 선택 필드 `keyPresses`(실제 키 입력 수)와 `inputStats`(`intervalCv`·`holdMeanMs`·`holdCv`·`inputsPerPiece`)를 담을 수 있다.
+놓은 블록이 20개 이상이고 초당 블록 수가 7을 넘거나 키 입력이 놓은 블록보다 적으면 봇 의심이다. 응답 `botSuspected`가 true이고 ranked=false이며 전적·최고 점수·랭킹에 넣지 않는다.
+나머지 신호(초당 4 초과, 간격·키 누름이 일정함, 블록당 입력이 적음)는 개수만 `matches.input_stats`에 기록한다. `app.bot.soft-enforce=true`이면 2개 이상일 때 봇 의심으로 본다(기본 false).
+
 ```json
 // 요청 (SOLO면 result·ai와 player의 attackSent·attackReceived 생략)
 { "result": "WIN", "durationMs": 184000,

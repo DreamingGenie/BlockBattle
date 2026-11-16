@@ -5,6 +5,7 @@
  * 어떤 키가 어떤 동작인지는 키 설정(keybindings, T-38)을 따른다.
  */
 import { ARR_MS, DAS_MS } from '../engine';
+import { InputStatsRecorder } from './inputStats';
 import { DEFAULT_BINDINGS, loadBindings, type BindAction, type KeyBindings } from './keybindings';
 
 export type Action = 'left' | 'right' | 'rotateCW' | 'rotateCCW' | 'hardDrop' | 'hold' | 'softDropOn' | 'softDropOff' | 'pause';
@@ -24,6 +25,14 @@ export class InputState {
   private readonly byCode = new Map<string, BindAction>();
   /** 게임 동작으로 이어진 실제 키 입력 수(T-39 봇 판정용, 결과와 함께 서버로 보낸다) */
   presses = 0;
+  /** 봇 판정용 입력 요약값 기록(T-40) */
+  readonly stats = new InputStatsRecorder();
+
+  /** 새 판을 시작할 때 키 입력 수와 요약값 기록을 비운다 */
+  resetCounters(): void {
+    this.presses = 0;
+    this.stats.reset();
+  }
 
   /** bindings를 주지 않으면 저장된 키 설정을 읽는다 */
   constructor(bindings: KeyBindings = typeof localStorage === 'undefined' ? DEFAULT_BINDINGS : loadBindings()) {

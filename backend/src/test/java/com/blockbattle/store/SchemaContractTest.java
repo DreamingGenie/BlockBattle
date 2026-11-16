@@ -82,7 +82,9 @@ class SchemaContractTest {
                     Map.entry("ranked", "tinyint(1)|NO|1"),
                     Map.entry("started_at", "datetime(6)|NO|null"),
                     Map.entry("ended_at", "datetime(6)|YES|null"),
-                    Map.entry("duration_ms", "int|YES|null")),
+                    Map.entry("duration_ms", "int|YES|null"),
+                    Map.entry("key_presses", "int|YES|null"),
+                    Map.entry("input_stats", "json|YES|null")),
             "match_players", Map.ofEntries(
                     Map.entry("id", "bigint|NO|null"),
                     Map.entry("match_id", "bigint|NO|null"),

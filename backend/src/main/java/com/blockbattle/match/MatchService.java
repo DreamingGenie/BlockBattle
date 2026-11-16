@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,9 +22,10 @@ public class MatchService {
 
     /**
      * SOLO면 result·ai·player.attackSent·attackReceived는 null이어야 한다.
-     * keyPresses는 경기 중 실제 키 입력 수(T-39, 선택). 없으면 봇 판정 ②를 건너뛴다.
+     * keyPresses는 경기 중 실제 키 입력 수(T-39, 선택), inputStats는 입력 요약값(T-40, 선택). 없으면 그 조건을 건너뛴다.
      */
-    public record ResultInput(String result, Integer durationMs, Stats player, Stats ai, Integer keyPresses) {
+    public record ResultInput(String result, Integer durationMs, Stats player, Stats ai, Integer keyPresses,
+                              BotCheck.InputStats inputStats) {
     }
 
     public record Stats(Integer score, Integer linesCleared, Integer level, Integer piecesPlaced, Integer attackSent,
@@ -39,12 +41,15 @@ public class MatchService {
     private final MatchRepository matches;
     private final UserRepository users;
     private final Clock clock;
+    private final boolean softEnforce;
     private final SecureRandom random = new SecureRandom();
 
-    public MatchService(MatchRepository matches, UserRepository users, Clock clock) {
+    public MatchService(MatchRepository matches, UserRepository users, Clock clock,
+                        @Value("${app.bot.soft-enforce:false}") boolean softEnforce) {
         this.matches = matches;
         this.users = users;
         this.clock = clock;
+        this.softEnforce = softEnforce;
     }
 
     @Transactional
@@ -75,12 +80,14 @@ public class MatchService {
         int received = aiMode ? p.attackReceived() : 0;
         Instant now = clock.instant();
         long serverElapsedMs = Duration.between(match.startedAt(), now).toMillis();
-        boolean bot = BotCheck.suspect(p.piecesPlaced(), serverElapsedMs, input.keyPresses());
+        BotCheck.Verdict verdict = BotCheck.judge(p.piecesPlaced(), serverElapsedMs, input.keyPresses(), input.inputStats());
+        boolean bot = verdict.bot(softEnforce);
         boolean ranked = !bot && ResultLimits.withinLimits(p.score(), p.linesCleared(), p.level(), p.piecesPlaced(), received,
                 p.maxCombo(), input.durationMs(), serverElapsedMs);
 
         boolean win = "WIN".equals(input.result());
         matches.finish(matchId, now, input.durationMs(), ranked, aiMode && win ? userId : null);
+        matches.saveInputStats(matchId, input.keyPresses(), input.inputStats(), verdict);
         matches.updatePlayer(matchId, 1, aiMode ? input.result() : "NONE", toRow(p));
         boolean newBest = false;
         if (bot) {

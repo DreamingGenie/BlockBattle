@@ -61,12 +61,16 @@ export function useKeyboard(input: InputState, enabled: boolean): void {
     const down = (e: KeyboardEvent) => {
       if (!e.isTrusted || !input.handles(e.code)) return;
       e.preventDefault();
-      if (!e.repeat) input.press(e.code);
+      if (!e.repeat) {
+        input.press(e.code);
+        input.stats.keyDown(e.code, e.timeStamp);
+      }
     };
     const up = (e: KeyboardEvent) => {
       if (!e.isTrusted || !input.handles(e.code)) return;
       e.preventDefault();
       input.release(e.code);
+      input.stats.keyUp(e.code, e.timeStamp);
     };
     const blur = () => input.reset();
     window.addEventListener('keydown', down);

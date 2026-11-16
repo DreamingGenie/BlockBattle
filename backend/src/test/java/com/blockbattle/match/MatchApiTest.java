@@ -245,12 +245,19 @@ class MatchApiTest {
         long ai = startAi();
         JsonNode saved = data(result(token, ai, """
                 {"result":"WIN","durationMs":120000,"keyPresses":3,
+                 "inputStats":{"intervalCv":0.05,"holdMeanMs":10,"holdCv":0.02,"inputsPerPiece":0.05},
                  "player":{"score":3000,"linesCleared":10,"level":2,"piecesPlaced":60,"attackSent":4,"attackReceived":0,"maxCombo":1},
                  "ai":{"score":100,"linesCleared":0,"level":1,"piecesPlaced":40,"attackSent":0,"attackReceived":4,"maxCombo":0}}"""));
         assertThat(saved.get("botSuspected").asBoolean()).isTrue();
         assertThat(saved.get("ranked").asBoolean()).isFalse();
         assertThat(jdbc.queryForObject("SELECT ai_wins FROM user_stats WHERE user_id = ?", Integer.class, userId)).isZero();
         assertThat(jdbc.queryForObject("SELECT status FROM matches WHERE id = ?", String.class, ai)).isEqualTo("FINISHED");
+        // T-40: 판정 근거값을 경기 행에 남긴다(기준값 조정·소명 검토용)
+        assertThat(jdbc.queryForObject("SELECT key_presses FROM matches WHERE id = ?", Integer.class, ai)).isEqualTo(3);
+        JsonNode stats = json.readTree(jdbc.queryForObject("SELECT input_stats FROM matches WHERE id = ?", String.class, ai));
+        assertThat(stats.get("hard").asBoolean()).isTrue();
+        assertThat(stats.get("softSignals").asInt()).isEqualTo(3);
+        assertThat(stats.get("intervalCv").asDouble()).isEqualTo(0.05);
 
         long solo = startSolo();
         JsonNode human = data(result(token, solo, SOLO_RESULT.replace("{\"durationMs\"", "{\"keyPresses\":500,\"durationMs\"")));

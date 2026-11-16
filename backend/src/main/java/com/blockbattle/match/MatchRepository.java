@@ -86,6 +86,19 @@ public class MatchRepository {
                 WHERE id = ?""", Timestamp.from(endedAt), durationMs, ranked, winnerUserId, matchId);
     }
 
+    /** 봇 판정 근거값(T-40). 요약값·서버 계산값을 JSON 한 칸에 둔다 */
+    public void saveInputStats(long matchId, Integer keyPresses, BotCheck.InputStats s, BotCheck.Verdict v) {
+        String json = String.format(java.util.Locale.ROOT,
+                "{\"intervalCv\":%s,\"holdMeanMs\":%s,\"holdCv\":%s,\"inputsPerPiece\":%s,\"pps\":%.2f,\"softSignals\":%d,\"hard\":%b}",
+                num(s == null ? null : s.intervalCv()), num(s == null ? null : s.holdMeanMs()), num(s == null ? null : s.holdCv()),
+                num(s == null ? null : s.inputsPerPiece()), v.pps(), v.softSignals(), v.hard());
+        jdbc.update("UPDATE matches SET key_presses = ?, input_stats = ? WHERE id = ?", keyPresses, json, matchId);
+    }
+
+    private static String num(Double d) {
+        return d == null || d.isNaN() || d.isInfinite() ? "null" : Double.toString(d);
+    }
+
     public void updatePlayer(long matchId, int slot, String result, PlayerStats s) {
         jdbc.update("""
                 UPDATE match_players SET result = ?, score = ?, lines_cleared = ?, level = ?, pieces_placed = ?,
