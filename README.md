@@ -87,6 +87,16 @@ bash deploy/deploy.sh <공인 IP> <키 파일.pem>
 
 운영 비밀값(`JWT_SECRET`, DB 비밀번호)은 서버의 `deploy/.env`(권한 600)에만 있고 저장소에는 `deploy/.env.example`만 있다.
 
+**요청 한도·상한** — 남용과 메모리 고갈에 대비해 아래 값을 둔다(보안 점검 H-3). IP 기준이라 같은 와이파이 뒤의 여러 사람이 함께 쓰므로, 시연처럼 한곳에서 많이 접속하면 `nginx.conf.template`의 값을 늘린다. 한도를 넘으면 nginx가 429로 답한다.
+
+| 대상 | 값 |
+| --- | --- |
+| `POST /api/v1/auth/guest` | IP당 분당 30회, 순간 50회 |
+| 방·경기 생성(`POST /api/v1/rooms`·`/matches`) | IP당 분당 60회, 순간 20회 |
+| `/ai/` | IP당 초당 20회, 순간 40회(넘으면 화면이 규칙 AI로 대신 둔다) |
+| `/ws` | IP당 동시 연결 60개 |
+| 컨테이너 메모리 | mysql 768m · redis 384m · backend 1200m · ai 384m(CPU 1개) · nginx 128m, 로그는 서비스마다 10MB × 3개 |
+
 ## 시험
 
 ```bash
