@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { Game } from '../engine';
-import { GAME_KEYS, InputState, type Action } from './input';
+import { InputState, type Action } from './input';
 import { sfx } from './sound';
 
 /** 성공한 조작의 효과음(내 보드 전용) */
@@ -58,12 +58,12 @@ export function useKeyboard(input: InputState, enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return;
     const down = (e: KeyboardEvent) => {
-      if (!GAME_KEYS.has(e.code)) return;
+      if (!input.handles(e.code)) return;
       e.preventDefault();
       if (!e.repeat) input.press(e.code);
     };
     const up = (e: KeyboardEvent) => {
-      if (!GAME_KEYS.has(e.code)) return;
+      if (!input.handles(e.code)) return;
       e.preventDefault();
       input.release(e.code);
     };

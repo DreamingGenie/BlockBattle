@@ -18,6 +18,7 @@ export function LobbyScreen() {
     { path: '/room', name: '친구 대전', desc: '방을 만들어 코드로 친구를 부르거나 코드로 들어갑니다', stat: `${s.friendWins}승 ${s.friendLosses}패` },
     { path: '/records', name: '최근 경기', desc: '내가 한 경기 기록과 상세 결과를 봅니다', stat: '' },
     { path: '/rankings', name: '랭킹', desc: '싱글 점수와 AI 난이도별 최단 승리 시간 순위', stat: '' },
+    { path: '/keys', name: '키 설정', desc: '이동·회전·드롭·홀드 키를 원하는 대로 바꿉니다', stat: '' },
   ];
 
   return (

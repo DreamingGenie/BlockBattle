@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 /** 해시 라우터(T-18): #/lobby, #/solo, #/ai, #/room/K7Q2MX, #/records, #/rankings, #/matches/402 */
 export interface Route {
-  name: 'lobby' | 'solo' | 'ai' | 'room' | 'records' | 'rankings' | 'match';
+  name: 'lobby' | 'solo' | 'ai' | 'room' | 'records' | 'rankings' | 'keys' | 'match';
   param?: string;
 }
 
@@ -19,6 +19,8 @@ export function parseRoute(hash: string): Route {
       return { name: 'records' };
     case 'rankings':
       return { name: 'rankings' };
+    case 'keys':
+      return { name: 'keys' };
     case 'matches':
       return parts[1] ? { name: 'match', param: parts[1] } : { name: 'records' };
     default:

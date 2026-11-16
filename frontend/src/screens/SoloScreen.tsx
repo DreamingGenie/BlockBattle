@@ -1,3 +1,4 @@
+import { controlsHelp } from '../game/keybindings';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
@@ -170,7 +171,7 @@ export function SoloScreen() {
             <strong>{hud.level}</strong>
           </div>
           <p className="muted keys">
-            ←/→ 이동 · ↑/Z 회전 · ↓ 소프트 · Space 하드 · C 홀드
+            {controlsHelp()}
           </p>
         </aside>
       </section>
