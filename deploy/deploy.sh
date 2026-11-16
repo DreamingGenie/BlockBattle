@@ -24,5 +24,7 @@ scp -i "$KEY" -o StrictHostKeyChecking=accept-new "$BUNDLE" "ubuntu@$IP:/tmp/blo
 "${SSH[@]}" "mkdir -p ~/block-battle && tar -xzf /tmp/block-battle.tgz -C ~/block-battle && rm /tmp/block-battle.tgz"
 
 echo "[4/4] 서버 준비(처음 한 번)·기동"
-"${SSH[@]}" "sudo bash ~/block-battle/deploy/server-setup.sh $HOST && cd ~/block-battle/deploy && sudo docker compose up -d --build && sudo docker compose ps"
+# nginx는 시작할 때 backend·ai 이름을 IP로 한 번만 풀어 둔다. 그 컨테이너만 새로 만들어지면 nginx가 옛 IP로 보내 502가 나므로
+# 기동 뒤 nginx를 다시 시작해 새 IP를 읽게 한다(2026-11-16 T-35 배포에서 약 2분간 502)
+"${SSH[@]}" "sudo bash ~/block-battle/deploy/server-setup.sh $HOST && cd ~/block-battle/deploy && sudo docker compose up -d --build && sudo docker compose restart nginx && sudo docker compose ps"
 echo "접속: https://$HOST"
