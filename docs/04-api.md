@@ -43,6 +43,7 @@ REST 응답은 모두 같은 봉투로 감싼다. 성공이면 success = true, e
 | POST | /matches/{matchId}/result | 싱글·vs AI 결과 저장 | Access | FR-SOL-01, FR-AI-03 |
 | GET | /matches/{matchId} | 경기 상세 | Access | FR-REC-01 |
 | GET | /rankings/solo | 싱글 랭킹 | Access | FR-SOL-02 |
+| GET | /rankings/ai | vs AI 난이도별 최단 승리 시간 랭킹 | Access | T-35 |
 | POST | /rooms | 방 생성 | Access | FR-ROM-01 |
 | GET | /rooms/{roomCode} | 방 조회(입장 전 확인) | Access | FR-ROM-02 |
 | POST | /rooms/{roomCode}/join | 방 입장 | Access | FR-ROM-02 |
@@ -199,6 +200,22 @@ room은 FRIEND가 아니면 null이다. 오류: NOT_PARTICIPANT(403), MATCH_NOT_
 
 싱글 랭킹 기록이 없으면 me는 null이다. 오류: INVALID_QUERY(400)
 
+### 3.11-1 GET /rankings/ai — vs AI 난이도별 최단 승리 시간 랭킹 (T-35)
+
+쿼리: difficulty(EASY·NORMAL·HARD·IMPOSSIBLE, 필수), limit(1~50, 기본 10).
+사용자마다 그 난이도에서 이긴 경기 중 duration_ms가 가장 짧은 한 판만 남기고, 짧은 시간 → 먼저 달성(ended_at) → userId 순으로 순위를 매긴다.
+ranked=false 경기와, 신고한 플레이 시간이 서버 경과 시간(ended_at − started_at)보다 5초 넘게 짧은 경기는 뺀다.
+
+```json
+// 200 응답 data
+{ "difficulty": "HARD",
+  "top": [ { "rank": 1, "userId": 3, "nickname": "지아", "tag": "0007", "durationMs": 74200,
+             "achievedAt": "2026-11-16T21:10:00+09:00" } ],
+  "me": { "rank": 12, "durationMs": 131000 } }
+```
+
+그 난이도 승리 기록이 없으면 me는 null이다. 오류: INVALID_QUERY(400, 난이도 없음·틀림, limit 범위 밖)
+
 ### 3.12 POST /rooms — 방 생성
 
 ```json
@@ -247,11 +264,11 @@ room은 FRIEND가 아니면 null이다. 오류: NOT_PARTICIPANT(403), MATCH_NOT_
 
 ### 4.1 POST /move — 다음 수 계산
 
-board는 맨 위 행부터 22행 × 10열이며(위 2행은 숨김 영역), 0은 빈칸, 1은 채워진 칸이다. FE는 inputs를 난이도별 간격(FR-AI-01)으로 재생한다. FE가 요청을 보낸 뒤 150ms 안에 응답을 못 받거나 오류가 나면 그 수는 FE 규칙 AI로 둔다(FR-AI-02).
+difficulty는 EASY·NORMAL·HARD·IMPOSSIBLE이다(T-35). board는 맨 위 행부터 22행 × 10열이며(위 2행은 숨김 영역), 0은 빈칸, 1은 채워진 칸이다. FE는 inputs를 난이도별 간격(FR-AI-01)으로 재생한다. FE가 요청을 보낸 뒤 150ms 안에 응답을 못 받거나 오류가 나면 그 수는 FE 규칙 AI로 둔다(FR-AI-02).
 
 ```json
 // 요청
-{ "difficulty": "HARD", "board": [[0,0,0,0,0,0,0,0,0,0], "... 22행"],
+{ "difficulty": "IMPOSSIBLE", "board": [[0,0,0,0,0,0,0,0,0,0], "... 22행"],
   "current": "T", "hold": null, "canHold": true,
   "next": ["I","O","S","Z","L"], "pendingGarbage": 2 }
 // 200 응답 data

@@ -17,8 +17,8 @@ const serverMove = (inputs: string[]): MoveOutcome => ({
   move: { useHold: false, piece: 'T', rotation: 0, x: 2, inputs: inputs as never, tSpin: false, elapsedMs: 1 },
 });
 
-describe('입력 재생 간격(EASY 300 · NORMAL 150 · HARD 60ms)', () => {
-  it.each([['EASY', 300], ['NORMAL', 150], ['HARD', 60]] as const)('%s는 %sms마다 입력 하나', async (difficulty, interval) => {
+describe('입력 재생 간격(최소 시간 제한이 없는 IMPOSSIBLE 60ms)', () => {
+  it.each([['IMPOSSIBLE', 60]] as const)('%s는 %sms마다 입력 하나', async (difficulty, interval) => {
     const game = new Game(3);
     const requestMove = vi.fn(() => Promise.resolve(serverMove(['LEFT', 'HARD_DROP'])));
     new AiController(game, difficulty, { requestMove, rand: () => 0.99 }).start();
@@ -34,6 +34,30 @@ describe('입력 재생 간격(EASY 300 · NORMAL 150 · HARD 60ms)', () => {
   });
 });
 
+describe('블록당 최소 시간(T-35: EASY 2000 · NORMAL 1500 · HARD 1000ms)', () => {
+  // 깨지면: AI가 다시 블록을 바로바로 놓아 사람이 따라가지 못한다
+  it.each([['EASY', 2000], ['NORMAL', 1500], ['HARD', 1000]] as const)('%s는 블록이 나온 뒤 %sms 전에 고정하지 않는다', async (difficulty, min) => {
+    const game = new Game(3);
+    const requestMove = vi.fn(() => Promise.resolve(serverMove(['LEFT', 'HARD_DROP'])));
+    new AiController(game, difficulty, { requestMove, rand: () => 0.99 }).start();
+    await vi.advanceTimersByTimeAsync(min - 1);
+    expect(game.seq).toBe(0);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(game.seq).toBe(1);
+  });
+
+  it('입력이 많아 기본 간격 합이 최소 시간을 넘으면 기본 간격을 따른다', async () => {
+    const game = new Game(3);
+    const inputs = ['CW', 'LEFT', 'LEFT', 'LEFT', 'CW', 'RIGHT', 'CW', 'CW', 'HARD_DROP'];
+    const requestMove = vi.fn(() => Promise.resolve(serverMove(inputs)));
+    new AiController(game, 'HARD', { requestMove, rand: () => 0.99 }).start();
+    await vi.advanceTimersByTimeAsync(150 * inputs.length - 1);
+    expect(game.seq).toBe(0);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(game.seq).toBe(1);
+  });
+});
+
 describe('서버가 늦어도 게임은 멈추지 않는다', () => {
   it('매번 150ms를 넘기는 서버면 규칙 AI 수로 계속 두고, 늦게 온 응답은 보드를 바꾸지 않는다', async () => {
     const game = new Game(11);
@@ -43,8 +67,8 @@ describe('서버가 늦어도 게임은 멈추지 않는다', () => {
       setTimeout(() => resolve(new Response(JSON.stringify({ success: true, error: null,
         data: { useHold: false, piece: 'I', rotation: 0, x: 0, inputs: ['LEFT', 'LEFT', 'LEFT', 'HARD_DROP'], tSpin: false, elapsedMs: 1 } }))), 400);
     }));
-    const expectedFirst = chooseRuleAiMove(game.board, game.current!.piece, 'HARD', () => 0.5)!;
-    const controller = new AiController(game, 'HARD', {
+    const expectedFirst = chooseRuleAiMove(game.board, game.current!.piece, 'IMPOSSIBLE', () => 0.5)!;
+    const controller = new AiController(game, 'IMPOSSIBLE', {
       requestMove: (body) => requestServerMove(body, { fetch: slowFetch as typeof fetch, baseUrl: 'https://h/ai/v1', accessToken: 't' }),
       rand: () => 0.5,
     });
@@ -52,7 +76,7 @@ describe('서버가 늦어도 게임은 멈추지 않는다', () => {
 
     // 비교군: 같은 시드에서 응답이 아예 오지 않고 150ms에 대체되는 경우(늦은 응답 없음)
     const reference = new Game(11);
-    const referenceController = new AiController(reference, 'HARD', {
+    const referenceController = new AiController(reference, 'IMPOSSIBLE', {
       requestMove: () => new Promise((resolve) => setTimeout(() => resolve({ source: 'fallback', reason: 'timeout' }), 150)),
       rand: () => 0.5,
     });

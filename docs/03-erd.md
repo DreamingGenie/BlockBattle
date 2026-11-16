@@ -77,7 +77,7 @@
 | series_no | INT | NULL | FRIEND일 때 같은 방 안의 시리즈 번호(1부터, 재대결마다 + 1) |
 | round_no | TINYINT | NULL | FRIEND일 때 시리즈 안의 라운드 번호(1~3) |
 | attempt_no | TINYINT | NULL | FRIEND일 때 같은 라운드를 다시 한 횟수(1부터, 무승부·ABORTED 뒤 + 1) |
-| ai_difficulty | ENUM('EASY','NORMAL','HARD') | NULL | AI일 때만 값 |
+| ai_difficulty | ENUM('EASY','NORMAL','HARD','IMPOSSIBLE') | NULL | AI일 때만 값 |
 | seed | BIGINT | NOT NULL | 7-bag 시드 |
 | status | ENUM('PLAYING','FINISHED','ABORTED') | NOT NULL | 경기 상태(BR-02) |
 | end_reason | ENUM('TOP_OUT','DRAW','LEFT','DISCONNECT','EXPIRED','COMPLETED') | NULL | 종료 사유. 싱글·AI 결과 저장은 COMPLETED, 2시간 미저장은 EXPIRED |

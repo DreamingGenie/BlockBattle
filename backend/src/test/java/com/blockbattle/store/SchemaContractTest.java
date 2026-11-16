@@ -73,7 +73,7 @@ class SchemaContractTest {
                     Map.entry("series_no", "int|YES|null"),
                     Map.entry("round_no", "tinyint|YES|null"),
                     Map.entry("attempt_no", "tinyint|YES|null"),
-                    Map.entry("ai_difficulty", "enum('EASY','NORMAL','HARD')|YES|null"),
+                    Map.entry("ai_difficulty", "enum('EASY','NORMAL','HARD','IMPOSSIBLE')|YES|null"),
                     Map.entry("seed", "bigint|NO|null"),
                     Map.entry("status", "enum('PLAYING','FINISHED','ABORTED')|NO|null"),
                     Map.entry("end_reason", "enum('TOP_OUT','DRAW','LEFT','DISCONNECT','EXPIRED','COMPLETED')|YES|null"),

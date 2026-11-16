@@ -21,9 +21,10 @@ interface Started {
 type Phase = 'choose' | 'starting' | 'playing' | 'saving' | 'result' | 'error';
 
 const DIFFICULTIES: { value: Difficulty; label: string; note: string }[] = [
-  { value: 'EASY', label: 'EASY', note: '한 수만 보고, 입력이 느립니다' },
-  { value: 'NORMAL', label: 'NORMAL', note: '다음 블록까지 봅니다' },
-  { value: 'HARD', label: 'HARD', note: 'T-스핀 자리까지 찾고 빠릅니다' },
+  { value: 'EASY', label: 'EASY', note: '가끔 실수하고, 블록 하나에 2초씩 씁니다' },
+  { value: 'NORMAL', label: 'NORMAL', note: '한 수만 보고, 블록 하나에 1.5초씩 씁니다' },
+  { value: 'HARD', label: 'HARD', note: '다음 블록까지 보고, 블록 하나에 1초씩 씁니다' },
+  { value: 'IMPOSSIBLE', label: 'IMPOSSIBLE', note: 'T-스핀 자리까지 찾고 쉬지 않고 놓습니다' },
 ];
 
 /** vs AI(FR-AI-01~03, REQ-007·008): 같은 시드의 두 엔진, AI는 서버 수 + 150ms 초과·오류 시 규칙 AI */

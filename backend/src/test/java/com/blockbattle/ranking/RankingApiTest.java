@@ -124,6 +124,57 @@ class RankingApiTest {
         assertThat(json.readTree(res.getContentAsString()).at("/error/code").asText()).isEqualTo("INVALID_QUERY");
     }
 
+    /** T-35: 깨지면 AI 랭킹이 최단 승리 시간 순이 아니거나, 진 경기·ranked=false·신고 시간 축소 경기가 섞인다는 뜻이다 */
+    @Test
+    void AI_랭킹은_난이도별_최단_승리_시간_순이고_사용자당_한_판이다() throws Exception {
+        Instant base = Instant.parse("2026-11-02T00:00:00Z");
+        aiMatch(early, "HARD", 90_000, true, true, base, 90_000);
+        aiMatch(early, "HARD", 70_000, true, true, base.plusSeconds(600), 70_000); // early의 최단
+        aiMatch(late, "HARD", 70_000, true, true, base.plusSeconds(900), 70_000);  // 같은 시간, 나중 달성
+        aiMatch(top, "HARD", 30_000, false, true, base, 30_000);                   // 진 경기
+        aiMatch(top, "HARD", 31_000, true, false, base, 31_000);                   // ranked=false
+        aiMatch(top, "HARD", 32_000, true, true, base, 60_000);                    // 실제 60초를 32초로 신고
+        aiMatch(top, "HARD", 34_000, true, true, base, 38_000);                    // 4초 차이는 허용
+        aiMatch(none, "EASY", 10_000, true, true, base, 10_000);                   // 다른 난이도
+
+        JsonNode data = aiRanking(late, "HARD", "");
+        assertThat(data.get("difficulty").asText()).isEqualTo("HARD");
+        assertThat(ids(data.get("top"))).containsExactly(top.userId(), early.userId(), late.userId());
+        assertThat(data.get("top").get(0).get("durationMs").asLong()).isEqualTo(34_000);
+        assertThat(data.get("top").get(1).get("durationMs").asLong()).isEqualTo(70_000);
+        assertThat(data.get("me").get("rank").asInt()).isEqualTo(3);
+
+        JsonNode limited = aiRanking(late, "HARD", "&limit=1");
+        assertThat(limited.get("top")).hasSize(1);
+        assertThat(limited.get("me").get("rank").asInt()).as("상위 밖이어도 내 순위는 준다").isEqualTo(3);
+        assertThat(aiRanking(none, "HARD", "").get("me").isNull()).isTrue();
+        assertThat(ids(aiRanking(none, "IMPOSSIBLE", "").get("top"))).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "?difficulty=GOD", "?difficulty=HARD&limit=0"})
+    void AI_랭킹_난이도가_없거나_틀리면_INVALID_QUERY(String query) throws Exception {
+        MockHttpServletResponse res = mvc.perform(get("/api/v1/rankings/ai" + query)
+                .header("Authorization", "Bearer " + early.token())).andReturn().getResponse();
+        assertThat(res.getStatus()).isEqualTo(400);
+        assertThat(json.readTree(res.getContentAsString()).at("/error/code").asText()).isEqualTo("INVALID_QUERY");
+    }
+
+    private void aiMatch(Player player, String difficulty, int durationMs, boolean win, boolean ranked, Instant endedAt, long serverMs) {
+        Instant startedAt = endedAt.minusMillis(serverMs);
+        jdbc.update("""
+                INSERT INTO matches (mode, ai_difficulty, seed, status, end_reason, winner_user_id, ranked, started_at, ended_at, duration_ms)
+                VALUES ('AI', ?, 1, 'FINISHED', 'TOP_OUT', ?, ?, ?, ?, ?)""",
+                difficulty, win ? player.userId() : null, ranked, Timestamp.from(startedAt), Timestamp.from(endedAt), durationMs);
+    }
+
+    private JsonNode aiRanking(Player as, String difficulty, String extra) throws Exception {
+        MockHttpServletResponse res = mvc.perform(get("/api/v1/rankings/ai?difficulty=" + difficulty + extra)
+                .header("Authorization", "Bearer " + as.token())).andReturn().getResponse();
+        assertThat(res.getStatus()).isEqualTo(200);
+        return data(res);
+    }
+
     private void best(Player player, int score, Instant achievedAt) {
         jdbc.update("UPDATE user_stats SET solo_games = 1, solo_best_score = ?, solo_best_achieved_at = ? WHERE user_id = ?",
                 score, Timestamp.from(achievedAt), player.userId());

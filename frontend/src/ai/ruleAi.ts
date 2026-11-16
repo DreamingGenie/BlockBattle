@@ -20,7 +20,7 @@ import type { AiInput, Difficulty } from './types';
  * FE 규칙 AI(GR-09). AI 서버가 늦거나 실패한 수만 대신 둔다(FR-AI-02).
  * 평가 = −0.51 × 열 높이 합 + 0.76 × 지운 줄 수 − 0.36 × 구멍 수 − 0.18 × 울퉁불퉁함
  */
-export const MISTAKE_RATE: Record<Difficulty, number> = { EASY: 0.3, NORMAL: 0.1, HARD: 0 };
+export const MISTAKE_RATE: Record<Difficulty, number> = { EASY: 0.3, NORMAL: 0.1, HARD: 0, IMPOSSIBLE: 0 };
 
 export interface Candidate {
   rotation: Rotation;
@@ -95,7 +95,7 @@ export function ruleAiCandidates(board: Board, piece: PieceType): Candidate[] {
   return result.sort((a, b) => b.score - a.score || a.rotation - b.rotation || a.x - b.x);
 }
 
-/** EASY 30%·NORMAL 10% 확률로 두 번째로 좋은 수를 둔다. HARD는 실수 없음. rand는 [0, 1) */
+/** EASY 30%·NORMAL 10% 확률로 두 번째로 좋은 수를 둔다. HARD·IMPOSSIBLE은 실수 없음. rand는 [0, 1) */
 export function chooseRuleAiMove(board: Board, piece: PieceType, difficulty: Difficulty, rand: () => number): Candidate | null {
   const candidates = ruleAiCandidates(board, piece);
   if (candidates.length === 0) return null;

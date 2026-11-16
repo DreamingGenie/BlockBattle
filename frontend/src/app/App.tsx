@@ -6,6 +6,7 @@ import { AiScreen } from '../screens/AiScreen';
 import { RoomEntryScreen } from '../screens/RoomEntryScreen';
 import { RoomScreen } from '../screens/RoomScreen';
 import { RecordsScreen } from '../screens/RecordsScreen';
+import { RankingScreen } from '../screens/RankingScreen';
 import { MatchDetailScreen } from '../screens/MatchDetailScreen';
 import { MobileNoticeScreen } from '../screens/MobileNoticeScreen';
 import { currentDevice, isMobileBrowser } from './device';
@@ -18,6 +19,7 @@ const screens: Partial<Record<Route['name'], (route: Route) => ReactElement>> = 
   solo: () => <SoloScreen />,
   ai: () => <AiScreen />,
   records: () => <RecordsScreen />,
+  rankings: () => <RankingScreen />,
   match: (route) => <MatchDetailScreen key={route.param} id={route.param ?? ''} />,
   room: (route) => (route.param ? <RoomScreen key={route.param} code={route.param} /> : <RoomEntryScreen />),
 };

@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-/** API 명세 3.11 GET /rankings/solo (API-010, FR-SOL-02) */
+/** API 명세 3.11 GET /rankings/solo (API-010, FR-SOL-02), GET /rankings/ai (T-35) */
 @RestController
 @RequestMapping(AccessTokenFilter.API_PREFIX + "/rankings")
 public class RankingController {
@@ -34,6 +34,20 @@ public class RankingController {
 
     public record SoloRanking(List<Entry> top, Me me) {
     }
+
+    public record AiEntry(long rank, long userId, String nickname, String tag, long durationMs, OffsetDateTime achievedAt) {
+    }
+
+    public record AiMe(long rank, long durationMs) {
+    }
+
+    public record AiRanking(String difficulty, List<AiEntry> top, AiMe me) {
+    }
+
+    private static final java.util.Set<String> DIFFICULTIES = java.util.Set.of("EASY", "NORMAL", "HARD", "IMPOSSIBLE");
+
+    /** 신고 플레이 시간이 서버 경과 시간보다 이만큼 넘게 짧으면 랭킹에서 뺀다(시작·결과 요청 왕복과 화면 준비 여유) */
+    static final long REPORTED_SHORTFALL_LIMIT_MS = 5_000;
 
     private record UserBest(String nickname, String tag, long score, OffsetDateTime achievedAt) {
     }
@@ -65,6 +79,43 @@ public class RankingController {
         }
         Me me = myRank == null || !bests.containsKey(userId) ? null : new Me(myRank, bests.get(userId).score());
         return ApiResponse.ok(new SoloRanking(top, me));
+    }
+
+    /**
+     * 난이도별 AI 최단 승리 시간. 사용자마다 가장 짧은 승리 한 판(같으면 먼저 끝난 판)만 남기고,
+     * 짧은 시간 → 먼저 달성 → user_id 순으로 순위를 매긴다. ranked=false 경기와 신고 시간을 줄인 경기는 뺀다.
+     */
+    @GetMapping("/ai")
+    public ApiResponse<AiRanking> ai(@RequestAttribute(AccessTokenFilter.USER_ID) long userId,
+                                     @RequestParam(required = false) String difficulty,
+                                     @RequestParam(defaultValue = "10") int limit) {
+        if (limit < 1 || limit > 50 || difficulty == null || !DIFFICULTIES.contains(difficulty)) throw new ApiException(ErrorCode.INVALID_QUERY);
+        List<AiEntry> top = new ArrayList<>();
+        AiMe[] me = {null};
+        jdbc.query("""
+                SELECT r.pos, r.user_id, u.nickname, u.tag, r.duration_ms, r.ended_at FROM (
+                    SELECT b.*, ROW_NUMBER() OVER (ORDER BY b.duration_ms, b.ended_at, b.user_id) AS pos FROM (
+                        SELECT m.winner_user_id AS user_id, m.duration_ms, m.ended_at,
+                               ROW_NUMBER() OVER (PARTITION BY m.winner_user_id ORDER BY m.duration_ms, m.ended_at, m.id) AS rn
+                        FROM matches m
+                        WHERE m.mode = 'AI' AND m.ai_difficulty = :difficulty AND m.status = 'FINISHED' AND m.ranked
+                          AND m.winner_user_id IS NOT NULL AND m.duration_ms IS NOT NULL
+                          AND TIMESTAMPDIFF(MICROSECOND, m.started_at, m.ended_at) <= (m.duration_ms + :shortfall) * 1000
+                    ) b WHERE b.rn = 1
+                ) r JOIN users u ON u.id = r.user_id
+                WHERE r.pos <= :limit OR r.user_id = :me
+                ORDER BY r.pos""",
+                Map.of("difficulty", difficulty, "shortfall", REPORTED_SHORTFALL_LIMIT_MS, "limit", limit, "me", userId),
+                rs -> {
+                    long pos = rs.getLong(1);
+                    long id = rs.getLong(2);
+                    long ms = rs.getLong(5);
+                    if (pos <= limit) {
+                        top.add(new AiEntry(pos, id, rs.getString(3), rs.getString(4), ms, ApiTime.of(rs.getTimestamp(6).toInstant())));
+                    }
+                    if (id == userId) me[0] = new AiMe(pos, ms);
+                });
+        return ApiResponse.ok(new AiRanking(difficulty, top, me[0]));
     }
 
     private Map<Long, UserBest> load(List<Long> userIds) {

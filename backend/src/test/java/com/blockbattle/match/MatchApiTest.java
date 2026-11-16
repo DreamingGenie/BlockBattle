@@ -86,8 +86,8 @@ class MatchApiTest {
 
     @Test
     void AI_시작은_난이도를_저장하고_AI를_자리_2에_둔다() throws Exception {
-        long matchId = data(start(token, "{\"mode\":\"AI\",\"aiDifficulty\":\"HARD\"}")).get("matchId").asLong();
-        assertThat(jdbc.queryForObject("SELECT ai_difficulty FROM matches WHERE id = ?", String.class, matchId)).isEqualTo("HARD");
+        long matchId = data(start(token, "{\"mode\":\"AI\",\"aiDifficulty\":\"IMPOSSIBLE\"}")).get("matchId").asLong();
+        assertThat(jdbc.queryForObject("SELECT ai_difficulty FROM matches WHERE id = ?", String.class, matchId)).isEqualTo("IMPOSSIBLE");
         assertThat(jdbc.queryForMap("SELECT user_id, player_type, result FROM match_players WHERE match_id = ? AND slot = 2", matchId))
                 .containsEntry("user_id", null).containsEntry("player_type", "AI").containsEntry("result", "NONE");
     }

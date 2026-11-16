@@ -31,7 +31,7 @@ public class MatchService {
     }
 
     static final Duration UNSAVED_LIMIT = Duration.ofHours(2);
-    private static final Set<String> DIFFICULTIES = Set.of("EASY", "NORMAL", "HARD");
+    private static final Set<String> DIFFICULTIES = Set.of("EASY", "NORMAL", "HARD", "IMPOSSIBLE");
 
     private final MatchRepository matches;
     private final UserRepository users;

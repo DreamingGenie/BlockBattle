@@ -2,11 +2,14 @@
 
 - 자리 찾기: 생성 자리에서 LEFT·RIGHT·CW·CCW(·SOFT_DROP)를 넓이 우선으로 탐색해 각 자리까지의 가장 짧은 입력을 얻는다.
   EASY·NORMAL은 위에서 회전·이동 후 HARD_DROP하는 자리만, HARD는 소프트 드롭 뒤 밀어 넣기·회전으로 들어가는 자리까지 본다.
-- 깊이: EASY 1수, NORMAL·HARD 2수(다음 블록까지, 상위 BEAM개만 펼침).
-- 평가: GR-09 가중치 + T-스핀(HARD)·방해 줄 대기 시 줄 삭제 가산점. 난수 없이 결정론적이다.
+  (T-35: 난이도를 한 단계씩 쉽게 옮겼다 — 옛 EASY=지금 NORMAL, 옛 NORMAL=지금 HARD, 옛 HARD=지금 IMPOSSIBLE)
+- 깊이: EASY·NORMAL 1수, HARD·IMPOSSIBLE 2수(다음 블록까지, 상위 BEAM개만 펼침). 소프트 드롭·T-스핀은 IMPOSSIBLE만.
+- 실수: EASY만 EASY_MISTAKE_RATE 확률로 두 번째로 좋은 수를 둔다(rng를 넘기면 그것을 쓴다). 나머지는 결정론적이다.
+- 평가: GR-09 가중치 + T-스핀(IMPOSSIBLE)·방해 줄 대기 시 줄 삭제 가산점.
 """
 from __future__ import annotations
 
+import random
 from collections import deque
 from dataclasses import dataclass
 
@@ -16,6 +19,7 @@ BEAM = 10
 W_HEIGHT, W_LINES, W_HOLES, W_BUMP = -0.51, 0.76, -0.36, -0.18
 TSPIN_BONUS_PER_LINE = 2.0
 GARBAGE_CLEAR_BONUS_PER_LINE = 0.5
+EASY_MISTAKE_RATE = 0.3
 
 
 @dataclass(frozen=True)
@@ -118,9 +122,9 @@ def step_bonus(p: Placement, pending_garbage: int, tspin_search: bool) -> float:
 
 
 def choose(board: rules.Board, difficulty: str, current: str, hold: str | None, can_hold: bool,
-           next_pieces: list[str], pending_garbage: int) -> Move | None:
-    hard = difficulty == "HARD"
-    depth = 1 if difficulty == "EASY" else 2
+           next_pieces: list[str], pending_garbage: int, rng: random.Random | None = None) -> Move | None:
+    hard = difficulty == "IMPOSSIBLE"
+    depth = 1 if difficulty in ("EASY", "NORMAL") else 2
 
     # (홀드 사용 여부, 이번에 놓을 블록, 그다음 블록)
     options: list[tuple[bool, str, str | None]] = [(False, current, next_pieces[0] if next_pieces else None)]
@@ -153,5 +157,8 @@ def choose(board: rules.Board, difficulty: str, current: str, hold: str | None, 
             rescored.append((total, idx, use_hold, p, following))
         first_moves = rescored
 
-    best = min(first_moves, key=lambda m: (-m[0], m[1]))
+    ranked = sorted(first_moves, key=lambda m: (-m[0], m[1]))
+    best = ranked[0]
+    if difficulty == "EASY" and len(ranked) > 1 and (rng or random).random() < EASY_MISTAKE_RATE:
+        best = ranked[1]
     return Move(best[2], best[3], best[0])
