@@ -157,6 +157,7 @@ REST 응답은 모두 같은 봉투로 감싼다. 성공이면 success = true, e
 
 봇 판정(T-39·T-40): 요청에 선택 필드 `keyPresses`(실제 키 입력 수)와 `inputStats`(`intervalCv`·`holdMeanMs`·`holdCv`·`inputsPerPiece`)를 담을 수 있다.
 놓은 블록이 20개 이상이고 초당 블록 수가 7을 넘거나 키 입력이 놓은 블록보다 적으면 봇 의심이다. 응답 `botSuspected`가 true이고 ranked=false이며 전적·최고 점수·랭킹에 넣지 않는다.
+친구 대전도 GAME_OVER 때 같은 바로 차단 조건(서버가 잰 라운드 시간, lock의 선택 필드 `keyPresses`)으로 판정하고, 의심이면 그 라운드를 ranked=false로 두고 양쪽 전적에 넣지 않으며 GAME_OVER에 `botSuspectedUserIds`를 담는다(T-41).
 나머지 신호(초당 4 초과, 간격·키 누름이 일정함, 블록당 입력이 적음)는 개수만 `matches.input_stats`에 기록한다. `app.bot.soft-enforce=true`이면 2개 이상일 때 봇 의심으로 본다(기본 false).
 
 ```json
@@ -206,7 +207,7 @@ room은 FRIEND가 아니면 null이다. 오류: NOT_PARTICIPANT(403), MATCH_NOT_
 
 ### 3.11-1 GET /rankings/ai — vs AI 난이도별 최단 승리 시간 랭킹 (T-35)
 
-쿼리: difficulty(EASY·NORMAL·HARD·IMPOSSIBLE, 필수), limit(1~50, 기본 10).
+쿼리: difficulty(VERY_EASY·EASY·NORMAL·HARD·IMPOSSIBLE, 필수), limit(1~50, 기본 10).
 사용자마다 그 난이도에서 이긴 경기 중 duration_ms가 가장 짧은 한 판만 남기고, 짧은 시간 → 먼저 달성(ended_at) → userId 순으로 순위를 매긴다.
 ranked=false 경기와, 신고한 플레이 시간이 서버 경과 시간(ended_at − started_at)보다 5초 넘게 짧은 경기는 뺀다.
 
@@ -268,7 +269,7 @@ ranked=false 경기와, 신고한 플레이 시간이 서버 경과 시간(ended
 
 ### 4.1 POST /move — 다음 수 계산
 
-difficulty는 EASY·NORMAL·HARD·IMPOSSIBLE이다(T-35). board는 맨 위 행부터 22행 × 10열이며(위 2행은 숨김 영역), 0은 빈칸, 1은 채워진 칸이다. FE는 inputs를 난이도별 간격(FR-AI-01)으로 재생한다. FE가 요청을 보낸 뒤 150ms 안에 응답을 못 받거나 오류가 나면 그 수는 FE 규칙 AI로 둔다(FR-AI-02).
+difficulty는 VERY_EASY·EASY·NORMAL·HARD·IMPOSSIBLE이다(T-35, T-41). board는 맨 위 행부터 22행 × 10열이며(위 2행은 숨김 영역), 0은 빈칸, 1은 채워진 칸이다. FE는 inputs를 난이도별 간격(FR-AI-01)으로 재생한다. FE가 요청을 보낸 뒤 150ms 안에 응답을 못 받거나 오류가 나면 그 수는 FE 규칙 AI로 둔다(FR-AI-02).
 
 ```json
 // 요청

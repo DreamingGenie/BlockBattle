@@ -543,7 +543,7 @@ button.mode:active {
   align-items: center;
   gap: 28px;
   margin: 56px auto 0;
-  max-width: 760px;
+  max-width: 900px;
 }
 
 .pick-title {
@@ -556,7 +556,7 @@ button.mode:active {
 
 .difficulty-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   width: 100%;
 }
@@ -564,6 +564,12 @@ button.mode:active {
 @media (max-width: 700px) {
   .difficulty-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 701px) and (max-width: 860px) {
+  .difficulty-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -582,9 +588,10 @@ button.difficulty-tile {
   transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.15s ease;
 }
 
-.tile-normal { --tile: #5fc6dd; }
-.tile-hard { --tile: #f0b429; }
-.tile-impossible { --tile: #e5534b; }
+button.tile-very-easy { --tile: #f08bb8; }
+button.tile-normal { --tile: #5fc6dd; }
+button.tile-hard { --tile: #f0b429; }
+button.tile-impossible { --tile: #e5534b; }
 
 .tile-stars {
   color: var(--tile);
@@ -1096,4 +1103,23 @@ a.button-like:hover {
 
 @keyframes glow-bot {
   50% { box-shadow: 0 0 0 6px rgba(163, 95, 211, 0.45), 0 0 40px rgba(163, 95, 211, 0.85); }
+}
+
+/* 친구 대전: 상대 봇 의심 안내(T-41) */
+.opp-bot-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 12px 14px;
+  background: color-mix(in srgb, #a35fd3 14%, var(--panel-2));
+  border: 1px solid #a35fd3;
+  border-radius: 8px;
+  color: var(--text);
+  text-align: center;
+  animation: pop-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) 0.3s both;
+}
+
+.opp-bot-notice strong {
+  color: #c88cf0;
 }

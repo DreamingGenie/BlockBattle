@@ -124,6 +124,11 @@ public class MatchRepository {
     }
 
     /** 친구 대전 종료(BR-02·BR-04). 아직 PLAYING일 때만 바꾼다 — 동시에 여러 사유가 와도 한 번만 확정된다 */
+    /** 봇 의심 친구 대전 라운드(T-41) */
+    public void setRanked(long matchId, boolean ranked) {
+        jdbc.update("UPDATE matches SET ranked = ? WHERE id = ?", ranked, matchId);
+    }
+
     public boolean finishFriend(long matchId, String status, String endReason, Long winnerUserId, Long seriesWinnerUserId,
                                 Instant endedAt, int durationMs) {
         return jdbc.update("""

@@ -44,7 +44,7 @@ public class RankingController {
     public record AiRanking(String difficulty, List<AiEntry> top, AiMe me) {
     }
 
-    private static final java.util.Set<String> DIFFICULTIES = java.util.Set.of("EASY", "NORMAL", "HARD", "IMPOSSIBLE");
+    private static final java.util.Set<String> DIFFICULTIES = java.util.Set.of("VERY_EASY", "EASY", "NORMAL", "HARD", "IMPOSSIBLE");
 
     /** 신고 플레이 시간이 서버 경과 시간보다 이만큼 넘게 짧으면 랭킹에서 뺀다(시작·결과 요청 왕복과 화면 준비 여유) */
     static final long REPORTED_SHORTFALL_LIMIT_MS = 5_000;

@@ -1,4 +1,4 @@
-import { ResultModal } from '../game/ResultModal';
+import { BotNotice, ResultModal } from '../game/ResultModal';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Game, boardFromString, emptyBoard, type Board } from '../engine';
 import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
@@ -55,6 +55,7 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
   useImperativeHandle(ref, () => ({
     countdown(c) {
       game.current = new Game(c.seed); // 같은 시드 → 같은 블록 순서(REQ-012)
+      input.resetCounters(); // 봇 판정용 키 입력 수는 라운드마다 센다(T-41)
       matchId.current = c.matchId;
       startsAt.current = c.startsAt;
       finished.current = false;
@@ -148,7 +149,7 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
       g.tick(dt);
       for (const event of g.drainEvents()) {
         if (event.type === 'lock') {
-          send(`/app/rooms/${code}/lock`, lockMessage(event));
+          send(`/app/rooms/${code}/lock`, lockMessage(event, input.presses));
           myBoard.current?.lock(event, g.combo); // 연출은 전송 뒤, 보낸 값에는 영향 없음(REQ-023)
         } else if (event.type === 'topout') {
           finished.current = true;
@@ -207,11 +208,25 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
           <BoardCanvas ref={oppBoard} cell={20} sides={false} label="상대 보드" />
         </div>
       </div>
-      {over && (
+      {over && over.botSuspectedUserIds?.includes(myId) && (
+        <BotNotice
+          matchId={over.matchId}
+          extra={
+            <p className="muted small">이번 라운드는 양쪽 모두 통계에 기록되지 않습니다. 결과 화면은 뒤에서 계속 진행됩니다.</p>
+          }
+        />
+      )}
+      {over && !over.botSuspectedUserIds?.includes(myId) && (
         <ResultModal
           tone={over.winnerUserId === null ? 'draw' : iWon ? 'win' : 'lose'}
           title={over.winnerUserId === null ? 'DRAW' : iWon ? 'VICTORY' : 'DEFEAT'}
         >
+          {over.botSuspectedUserIds && over.botSuspectedUserIds.length > 0 && (
+            <div className="opp-bot-notice" role="alert">
+              <strong>상대방의 봇 사용이 의심됩니다</strong>
+              <span>소명되기 전까지는 이번 대전이 통계에 기록되지 않습니다.</span>
+            </div>
+          )}
           <p className="muted">{REASON_TEXT[over.reason]}</p>
           <p>
             승수:{' '}

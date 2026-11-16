@@ -9,12 +9,13 @@ describe('lockMessage', () => {
     game.rotateCW();
     game.hardDrop();
     const event = game.drainEvents().find((e): e is LockEvent => e.type === 'lock')!;
-    const body = lockMessage(event);
+    const body = lockMessage(event, 7);
     expect(body).toMatchObject({ seq: 1, piece: event.placement.piece, rotation: event.placement.rotation, holdUsed: false, linesCleared: 0 });
     expect(body.lastMove).toBe('MOVE'); // 회전 뒤 하드 드롭으로 내려왔으면 마지막 동작은 이동
     expect(Object.keys(body).sort()).toEqual([
-      'hardDropCells', 'holdUsed', 'lastMove', 'linesCleared', 'piece', 'rotation', 'seq', 'softDropCells', 'x', 'y',
+      'hardDropCells', 'holdUsed', 'keyPresses', 'lastMove', 'linesCleared', 'piece', 'rotation', 'seq', 'softDropCells', 'x', 'y',
     ]);
+    expect(body.keyPresses).toBe(7); // T-41 봇 판정용 누적 키 입력 수
     // 생성 행(y 0)에서 바닥까지 하드 드롭했으므로 하드 칸 수는 고정 y와 같다(서버 상한 안, POL-005 v2)
     expect(body.softDropCells).toBe(0);
     expect(body.hardDropCells).toBe(event.placement.y);

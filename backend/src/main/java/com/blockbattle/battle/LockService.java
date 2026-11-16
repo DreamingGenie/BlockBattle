@@ -33,7 +33,8 @@ public class LockService {
      * (정수가 아니면 0, POL-005).
      */
     public record LockMessage(Integer seq, String piece, Integer rotation, Integer x, Integer y, Boolean holdUsed,
-                              String lastMove, Integer linesCleared, Object softDropCells, Object hardDropCells) {
+                              String lastMove, Integer linesCleared, Object softDropCells, Object hardDropCells,
+                              Integer keyPresses) {
     }
 
     /** 새 블록이 나오는 행(GR-04, 회전 0·x 3·y 0) */
@@ -47,13 +48,14 @@ public class LockService {
     private final MatchOutcomeService outcomes;
     private final BattleScheduler scheduler;
     private final Clock clock;
+    private final KeyPressTracker keyPresses;
     private final SecureRandom random = new SecureRandom();
     private final Map<Long, Object> matchLocks = new ConcurrentHashMap<>();
     private final Map<Long, Long> seeds = new ConcurrentHashMap<>();
 
     public LockService(RoomStateStore rooms, PlayerStateRepository states, RoomEventPublisher events,
                        SimpMessagingTemplate messaging, JdbcTemplate jdbc, MatchOutcomeService outcomes,
-                       BattleScheduler scheduler, Clock clock) {
+                       BattleScheduler scheduler, Clock clock, KeyPressTracker keyPresses) {
         this.rooms = rooms;
         this.states = states;
         this.events = events;
@@ -62,6 +64,7 @@ public class LockService {
         this.outcomes = outcomes;
         this.scheduler = scheduler;
         this.clock = clock;
+        this.keyPresses = keyPresses;
     }
 
     /** BR-04 동시 topout 판정 창 */
@@ -119,6 +122,7 @@ public class LockService {
                 return;
             }
             states.save(matchId, userId, outcome.state());
+            keyPresses.record(matchId, userId, msg.keyPresses()); // 봇 판정용(T-41, 선택 필드)
             rooms.touch(code); // lock은 활동이다(POL-024)
 
             Map<String, Object> board = new LinkedHashMap<>();

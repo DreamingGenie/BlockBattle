@@ -14,7 +14,7 @@ export function LobbyScreen() {
   const s = me.stats;
   const modes = [
     { path: '/solo', name: '싱글', desc: '혼자 최고 점수에 도전하고 랭킹에 오릅니다', stat: `${s.soloGames}판 · 최고 ${s.soloBestScore.toLocaleString()}점` },
-    { path: '/ai', name: 'vs AI', desc: 'EASY부터 IMPOSSIBLE까지 골라 AI와 대전합니다', stat: `${s.aiWins}승 ${s.aiLosses}패` },
+    { path: '/ai', name: 'vs AI', desc: 'VERY EASY부터 IMPOSSIBLE까지 골라 AI와 대전합니다', stat: `${s.aiWins}승 ${s.aiLosses}패` },
     { path: '/room', name: '친구 대전', desc: '방을 만들어 코드로 친구를 부르거나 코드로 들어갑니다', stat: `${s.friendWins}승 ${s.friendLosses}패` },
     { path: '/records', name: '최근 경기', desc: '내가 한 경기 기록과 상세 결과를 봅니다', stat: '' },
     { path: '/rankings', name: '랭킹', desc: '싱글 점수와 AI 난이도별 최단 승리 시간 순위', stat: '' },

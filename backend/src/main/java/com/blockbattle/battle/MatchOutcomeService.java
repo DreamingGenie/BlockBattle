@@ -1,6 +1,7 @@
 package com.blockbattle.battle;
 
 import com.blockbattle.match.Apm;
+import com.blockbattle.match.BotCheck;
 import com.blockbattle.match.MatchRepository;
 import com.blockbattle.match.MatchRepository.PlayerStats;
 import com.blockbattle.realtime.RoomEventPublisher;
@@ -46,13 +47,14 @@ public class MatchOutcomeService {
     private final BattleScheduler scheduler;
     private final TransactionTemplate tx;
     private final Clock clock;
+    private final KeyPressTracker keyPresses;
     /** 방별 마지막 GAME_OVER payload — 끊김으로 시리즈가 끝날 때 다시 보낸다(단일 서버 기준) */
     private final Map<String, Map<String, Object>> lastGameOver = new ConcurrentHashMap<>();
 
     public MatchOutcomeService(MatchRepository matches, RoomRepository roomRepository, UserRepository users,
                                PlayerStateRepository states, RoomStateStore rooms, DisconnectTimerStore timers,
                                RoomEventPublisher events, RoundStarter roundStarter, BattleScheduler scheduler,
-                               TransactionTemplate tx, Clock clock) {
+                               TransactionTemplate tx, Clock clock, KeyPressTracker keyPresses) {
         this.matches = matches;
         this.roomRepository = roomRepository;
         this.users = users;
@@ -64,6 +66,7 @@ public class MatchOutcomeService {
         this.scheduler = scheduler;
         this.tx = tx;
         this.clock = clock;
+        this.keyPresses = keyPresses;
     }
 
     static int winsNeeded(int roundCount) {
@@ -88,6 +91,14 @@ public class MatchOutcomeService {
         int durationMs = (int) Math.max(0, Duration.between(match.startedAt(), now).toMillis());
         Map<Long, PlayerState> finalStates = new LinkedHashMap<>();
         match.slots().keySet().forEach(id -> finalStates.put(id, states.load(matchId, id)));
+        // 봇 의심(T-41): 서버가 잰 라운드 시간 기준 초당 블록 수, lock과 함께 온 실제 키 입력 수로 판정한다(BotCheck 바로 차단 조건).
+        // 한쪽이라도 의심이면 이번 라운드는 양쪽 전적에 넣지 않고 ranked = false로 남긴다(소명 검토용). 시리즈 진행은 그대로 둔다.
+        List<Long> botSuspects = new ArrayList<>();
+        finalStates.forEach((id, s) -> {
+            if (BotCheck.judge(s.piecesPlaced(), durationMs, keyPresses.get(matchId, id), null).hard()) botSuspects.add(id);
+        });
+        keyPresses.clear(matchId, match.slots().keySet());
+        boolean bot = !botSuspects.isEmpty();
 
         Boolean changed = tx.execute(status -> {
             if (!matches.finishFriend(matchId, aborted ? "ABORTED" : "FINISHED",
@@ -100,7 +111,8 @@ public class MatchOutcomeService {
                 matches.updatePlayer(matchId, slot, result, new PlayerStats(s.score(), s.linesCleared(), s.level(),
                         s.piecesPlaced(), s.attackSent(), s.attackReceived(), s.maxCombo()));
             });
-            if (!aborted && winnerId != null) { // 무승부·ABORTED·NONE은 전적을 바꾸지 않는다(BR-09)
+            if (bot) matches.setRanked(matchId, false);
+            if (!aborted && winnerId != null && !bot) { // 무승부·ABORTED·NONE·봇 의심은 전적을 바꾸지 않는다(BR-09, T-41)
                 users.recordFriendResult(winnerId, true, now);
                 users.recordFriendResult(loserId, false, now);
             }
@@ -152,6 +164,7 @@ public class MatchOutcomeService {
         payload.put("seriesWinnerUserId", seriesWinnerId);
         payload.put("nextRoundStartsAt", nextRoundStartsAt);
         payload.put("stats", stats);
+        payload.put("botSuspectedUserIds", botSuspects);
         lastGameOver.put(code, payload);
         events.publish(code, "GAME_OVER", payload);
         return true;

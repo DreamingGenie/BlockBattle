@@ -123,7 +123,7 @@ def test_hold_is_considered_when_allowed():
     assert replay(rows, "I", data["inputs"][1:])[:2] == (1, 7)
 
 
-@pytest.mark.parametrize("difficulty", ["EASY", "NORMAL", "HARD", "IMPOSSIBLE"])
+@pytest.mark.parametrize("difficulty", ["VERY_EASY", "EASY", "NORMAL", "HARD", "IMPOSSIBLE"])
 def test_answers_fast_enough_for_150ms_budget(difficulty):
     req = request(difficulty, rows=["G000000000", "GG0G000GGG", "GGGG0GGGGG"], can_hold=True, hold="L")
     data = client.post("/ai/v1/move", json=req, headers=AUTH).json()["data"]
@@ -166,3 +166,15 @@ def test_easy_sometimes_plays_second_best():
     picks = [search.choose(board, "EASY", "T", None, False, ["I"], 0, rng=random.Random(i)).placement for i in range(200)]
     mistakes = sum(p != best for p in picks)
     assert 30 <= mistakes <= 90
+
+
+def test_very_easy_never_holds_and_often_plays_random():
+    """T-41: VERY_EASY는 홀드를 쓰지 않고 절반쯤 아무 자리에나 둔다. 깨지면 초보가 이길 수 없을 만큼 강해진다"""
+    import random
+    from app import rules, search
+    board = rules.board_from_grid(grid(["G000000000", "GG0G000GGG"]))
+    best = search.choose(board, "NORMAL", "T", None, False, ["I"], 0).placement
+    moves = [search.choose(board, "VERY_EASY", "T", "I", True, ["I", "O"], 0, rng=random.Random(i)) for i in range(200)]
+    assert not any(m.use_hold for m in moves)
+    off = sum(m.placement != best for m in moves)
+    assert 60 <= off <= 140

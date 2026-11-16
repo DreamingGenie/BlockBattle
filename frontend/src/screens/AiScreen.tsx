@@ -3,6 +3,7 @@ import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
 import { AiController, requestServerMove, type Difficulty } from '../ai';
+import { difficultyLabel } from '../ai/types';
 import { Game } from '../engine';
 import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
 import { applyActions, inputSound, useKeyboard } from '../game/controls';
@@ -23,6 +24,7 @@ type Phase = 'choose' | 'starting' | 'playing' | 'saving' | 'result' | 'error';
 
 /** 난이도 선택 타일: 별 개수로 세기를 보여 준다(설명 문구 없이) */
 const DIFFICULTIES: { value: Difficulty; stars: number }[] = [
+  { value: 'VERY_EASY', stars: 0 },
   { value: 'EASY', stars: 1 },
   { value: 'NORMAL', stars: 2 },
   { value: 'HARD', stars: 3 },
@@ -122,7 +124,8 @@ export function AiScreen() {
       if (myEvents.some((e) => e.type === 'lock')) input.stats.lock(performance.now());
       const aiEvents = a.drainEvents();
       forwardAttacks(myEvents, a);
-      forwardAttacks(aiEvents, g);
+      // VERY_EASY AI는 공격을 보내지 않는다(T-41: 줄을 빨리 못 지우는 사람도 버틸 수 있게)
+      if (difficulty !== 'VERY_EASY') forwardAttacks(aiEvents, g);
       // 연출(REQ-023): 내 보드는 전부, AI 보드는 게임 오버 회색 처리만
       for (const e of myEvents) {
         if (e.type === 'lock') myBoard.current?.lock(e, g.combo);
@@ -169,12 +172,12 @@ export function AiScreen() {
                 key={d.value}
                 role="radio"
                 aria-checked={difficulty === d.value}
-                className={`difficulty-tile tile-${d.value.toLowerCase()}${difficulty === d.value ? ' selected' : ''}`}
+                className={`difficulty-tile tile-${d.value.toLowerCase().replace('_', '-')}${difficulty === d.value ? ' selected' : ''}`}
                 onClick={() => setDifficulty(d.value)}
                 onDoubleClick={() => setRound((r) => r + 1)}
               >
-                <span className="tile-stars" aria-hidden="true">{'★'.repeat(d.stars)}</span>
-                <span className="tile-name">{d.value}</span>
+                <span className="tile-stars" aria-hidden="true">{d.stars ? '★'.repeat(d.stars) : '♥'}</span>
+                <span className="tile-name">{difficultyLabel(d.value)}</span>
               </button>
             ))}
           </div>
@@ -192,7 +195,7 @@ export function AiScreen() {
         <button className="link" onClick={() => navigate('/lobby')}>
           ← 로비
         </button>
-        <strong>vs AI · {difficulty}</strong>
+        <strong>vs AI · {difficultyLabel(difficulty)}</strong>
         <FxControls />
       </header>
       <section className="play">
@@ -220,7 +223,7 @@ export function AiScreen() {
       )}
       {phase === 'result' && outcome && !outcome.bot && (
         <ResultModal tone={outcome.win ? 'win' : 'lose'} title={outcome.win ? 'VICTORY' : 'DEFEAT'}>
-          <p className="result-sub">{outcome.win ? `AI ${difficulty}를 ${formatWinTime(playMs.current)}만에 이겼습니다!` : `AI ${difficulty}에게 졌습니다`}</p>
+          <p className="result-sub">{outcome.win ? `AI ${difficultyLabel(difficulty)}를 ${formatWinTime(playMs.current)}만에 이겼습니다!` : `AI ${difficultyLabel(difficulty)}에게 졌습니다`}</p>
           <p className="muted">
             내 점수 {me.current?.score.toLocaleString()} · AI 점수 {ai.current?.score.toLocaleString()}
             {outcome.ranked ? '' : ' · 점수 검사에 걸려 기록에 표시만 됩니다'}

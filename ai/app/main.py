@@ -22,7 +22,7 @@ Piece = Literal["I", "O", "T", "S", "Z", "J", "L"]
 
 
 class MoveRequest(BaseModel):
-    difficulty: Literal["EASY", "NORMAL", "HARD", "IMPOSSIBLE"]
+    difficulty: Literal["VERY_EASY", "EASY", "NORMAL", "HARD", "IMPOSSIBLE"]
     board: list[list[int]]
     current: Piece
     hold: Piece | None = None

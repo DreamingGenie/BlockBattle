@@ -167,6 +167,24 @@ class FriendOutcomeTest {
                 + friend(guest, "friend_wins") + friend(guest, "friend_losses")).isZero();
     }
 
+    /** T-41: 깨지면 봇을 쓴 쪽의 친구 대전 승리가 전적에 들어가거나, 화면이 양쪽에 알릴 근거(botSuspectedUserIds)가 사라진다 */
+    @Test
+    void 사람이_낼_수_없는_속도로_놓은_쪽이_있으면_봇_의심으로_양쪽_전적에_넣지_않는다() throws Exception {
+        // 상대(guest)가 시작 직후 300블록을 놓은 상태 — 서버가 잰 라운드 시간 기준 초당 7블록을 크게 넘는다
+        states.save(matchId, guest, new PlayerState(Board.empty(), 300, 300, null, false, List.of(), -1, false, 90_000, 120, 13,
+                300, 40, 0, 5, null));
+        states.save(matchId, host, blockedState());
+        hostSession.send("/app/rooms/" + code + "/topout", Map.of("seq", 0));
+
+        JsonNode over = next(topic, "GAME_OVER").get("payload");
+        assertThat(over.get("winnerUserId").asLong()).isEqualTo(guest);
+        assertThat(over.get("botSuspectedUserIds")).hasSize(1);
+        assertThat(over.get("botSuspectedUserIds").get(0).asLong()).isEqualTo(guest);
+        assertThat(jdbc.queryForObject("SELECT ranked FROM matches WHERE id = ?", Boolean.class, matchId)).isFalse();
+        assertThat(friend(host, "friend_wins") + friend(host, "friend_losses")
+                + friend(guest, "friend_wins") + friend(guest, "friend_losses")).as("소명 전까지 통계에 넣지 않는다").isZero();
+    }
+
     @Test
     void 경기_중_방을_나가면_나간_쪽_LEFT_패배다() throws Exception {
         mvc.perform(post("/api/v1/rooms/" + code + "/leave").header("Authorization", "Bearer " + g.token()));

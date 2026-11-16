@@ -42,7 +42,7 @@ export const APPEAL_EMAIL = 'dreaminggenie@naver.com';
  * 봇 의심 알림(T-39): 서버가 자동 플레이로 판정해 결과를 전적·랭킹에 넣지 않았을 때 결과 팝업 대신 띄운다.
  * 사람이라면 스크린샷·닉네임·유저 코드(태그)·경기 번호를 메일로 보내 소명하게 안내한다.
  */
-export function BotNotice({ matchId, onRetry }: { matchId: number; onRetry: () => void }) {
+export function BotNotice({ matchId, onRetry, extra }: { matchId: number; onRetry?: () => void; extra?: ReactNode }) {
   const { me } = useSession();
   const [copied, setCopied] = useState<string | null>(null);
   const who = me ? `${me.nickname}#${me.tag}` : '-';
@@ -95,13 +95,16 @@ export function BotNotice({ matchId, onRetry }: { matchId: number; onRetry: () =
           <button className="secondary" onClick={() => copy('info', `${APPEAL_EMAIL}\n${info}`)}>
             정보 복사
           </button>
-          <button className="secondary" onClick={onRetry}>
-            다시 하기
-          </button>
+          {onRetry && (
+            <button className="secondary" onClick={onRetry}>
+              다시 하기
+            </button>
+          )}
           <button className="secondary" onClick={() => navigate('/lobby')}>
             로비로
           </button>
         </div>
+        {extra}
       </section>
     </div>
   );

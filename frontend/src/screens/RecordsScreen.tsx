@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
+import { difficultyLabel } from '../ai/types';
 
 /** GET /users/me/matches 응답(T-15 구현 그대로) */
 interface MatchPage {
@@ -138,7 +139,7 @@ export function RecordsScreen() {
                       {m.opponent == null
                         ? '-'
                         : m.opponent.playerType === 'AI'
-                          ? `AI (${m.opponent.aiDifficulty})`
+                          ? `AI (${difficultyLabel(m.opponent.aiDifficulty ?? '')})`
                           : `${m.opponent.nickname}#${m.opponent.tag}`}
                     </td>
                     <td>{m.status === 'ABORTED' ? '무효' : RESULT_TEXT[m.myResult]}</td>

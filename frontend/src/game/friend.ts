@@ -1,8 +1,9 @@
 import type { GarbageBundle, LockEvent, PieceType } from '../engine';
 
 /** SEND /app/rooms/{code}/lock 본문(API 명세 5.2). lastMove는 회전이면 ROTATE, 아니면 MOVE(서버는 T-스핀 판정에만 쓴다) */
-export function lockMessage(event: LockEvent) {
+export function lockMessage(event: LockEvent, keyPresses?: number) {
   return {
+    keyPresses, // 그 라운드 누적 실제 키 입력 수(T-41 봇 판정용)
     seq: event.seq,
     piece: event.placement.piece,
     rotation: event.placement.rotation,
@@ -53,6 +54,8 @@ export interface GameOverPayload {
   seriesWinnerUserId: number | null;
   nextRoundStartsAt: number | null;
   stats: { userId: number; score: number; attackSent: number; attackReceived: number; maxCombo: number; apm: number }[];
+  /** 봇 의심으로 이번 라운드를 통계에 넣지 않은 사용자(T-41). 옛 서버는 보내지 않는다 */
+  botSuspectedUserIds?: number[];
 }
 
 export const REASON_TEXT: Record<GameOverPayload['reason'], string> = {

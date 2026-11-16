@@ -1,3 +1,4 @@
+import { difficultyLabel } from '../ai/types';
 import { useEffect, useState } from 'react';
 import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
@@ -62,7 +63,7 @@ export function MatchDetailScreen({ id }: { id: string }) {
         <section className="card stack" style={{ marginTop: 12 }}>
           <p>
             {MODE_TEXT[data.mode]}
-            {data.aiDifficulty ? ` · ${data.aiDifficulty}` : ''}
+            {data.aiDifficulty ? ` · ${difficultyLabel(data.aiDifficulty)}` : ''}
             {data.room ? ` · 방 ${data.room.roomCode} · 시리즈 ${data.room.seriesNo} · ${data.room.roundNo}라운드${data.room.attemptNo > 1 ? `(재시도 ${data.room.attemptNo})` : ''}` : ''}
           </p>
           <p className="muted">
@@ -89,7 +90,7 @@ export function MatchDetailScreen({ id }: { id: string }) {
             <tbody>
               {data.players.map((p) => (
                 <tr key={p.slot} className={p.userId === me?.userId ? 'mine' : undefined}>
-                  <td>{p.playerType === 'AI' ? `AI${data.aiDifficulty ? ` (${data.aiDifficulty})` : ''}` : `${p.nickname}#${p.tag}`}</td>
+                  <td>{p.playerType === 'AI' ? `AI${data.aiDifficulty ? ` (${difficultyLabel(data.aiDifficulty)})` : ''}` : `${p.nickname}#${p.tag}`}</td>
                   <td>{RESULT_TEXT[p.result] ?? p.result}</td>
                   <td>{p.score.toLocaleString()}</td>
                   <td>{p.linesCleared}</td>
