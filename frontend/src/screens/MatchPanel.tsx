@@ -185,8 +185,8 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
   const seriesDone = over?.seriesWinnerUserId != null;
 
   return (
-    <section className="stack" style={{ marginTop: 16 }}>
-      <p className="muted">
+    <section className="stack match-panel">
+      <p className="muted small round-line">
         {round.seriesNo > 0
           ? `시리즈 ${round.seriesNo} · ${round.roundNo}라운드${round.attemptNo > 1 ? ` (재시도 ${round.attemptNo})` : ''}`
           : '경기 이어 하는 중'}

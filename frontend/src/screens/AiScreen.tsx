@@ -45,6 +45,8 @@ export function AiScreen() {
   const ai = useRef<Game | null>(null);
   const controller = useRef<AiController | null>(null);
   const playMs = useRef(0);
+  /** 판이 시작된 실제 시각(performance.now). vs AI는 일시정지가 없어 결과 시간은 실제 경과 시간으로 보낸다(T-44) */
+  const startedAt = useRef(0);
   const ended = useRef(false);
   const myBoard = useRef<BoardCanvasHandle>(null);
   const aiBoard = useRef<BoardCanvasHandle>(null);
@@ -69,6 +71,7 @@ export function AiScreen() {
         myBoard.current?.reset();
         aiBoard.current?.reset();
         playMs.current = 0;
+        startedAt.current = performance.now();
         input.resetCounters();
         ended.current = false;
         controller.current?.stop();
@@ -96,6 +99,8 @@ export function AiScreen() {
       controller.current?.stop();
       const m = match.current;
       if (!m || !me.current || !ai.current) return;
+      // 프레임 합(playMs)은 창을 내리거나 프레임이 끊기면 모자라 서버 경과 시간과 어긋난다 → 실제 경과 시간을 쓴다
+      playMs.current = Math.max(playMs.current, performance.now() - startedAt.current);
       setPhase('saving');
       try {
         const saved = await api.post<{ ranked: boolean; botSuspected?: boolean }>(`/matches/${m.matchId}/result`, aiResultBody(me.current, ai.current, win, playMs.current, input.presses, input.stats.summary(input.presses, me.current.piecesPlaced)), { retryUnavailable: true });

@@ -23,6 +23,12 @@ export function RoomScreen({ code }: { code: string }) {
   const [room, setRoom] = useState<RoomView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // 알림은 화면 위 토스트로 잠깐 띄운다. 상대 끊김 안내만 다시 연결될 때까지 남긴다(T-44)
+  useEffect(() => {
+    if (!notice || notice.startsWith('상대의 연결이 끊겼습니다')) return;
+    const t = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(t);
+  }, [notice]);
   const [closed, setClosed] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<Countdown | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -158,7 +164,11 @@ export function RoomScreen({ code }: { code: string }) {
         </section>
       )}
       {error && <p className="error">{error}</p>}
-      {notice && <p className="muted">{notice}</p>}
+      {notice && (
+        <p className="toast" role="status">
+          {notice}
+        </p>
+      )}
 
       {room && !participant && !closed && (
         <section className="card stack" style={{ marginTop: 16, maxWidth: 480 }}>

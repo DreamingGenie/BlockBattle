@@ -314,6 +314,7 @@ canvas.board {
   flex-direction: column;
   gap: 12px;
   min-width: 180px;
+  max-width: 280px; /* 조작 안내가 길어도 판 옆에 들어가게 줄바꿈한다(T-44) */
 }
 
 .hud div {
@@ -1122,4 +1123,52 @@ a.button-like:hover {
 
 .opp-bot-notice strong {
   color: #c88cf0;
+}
+
+/* ── 게임 판을 화면 높이에 맞춤(T-44) ──
+   캔버스는 28px 칸 기준 크기로 그리고, 화면이 낮으면 CSS로 비율을 지키며 줄인다.
+   --board-reserve = 판 말고 세로로 차지하는 것(위아래 여백·제목 줄·점수 줄·테두리). 친구 대전은 라운드 안내 줄만큼 더 둔다 */
+:root {
+  --board-reserve: 190px;
+}
+
+canvas.board {
+  display: block;
+  max-height: calc(100vh - var(--board-reserve));
+  max-width: 100%;
+  width: auto;
+  height: auto;
+}
+
+.match-panel {
+  --board-reserve: 222px;
+  margin-top: 8px;
+  gap: 0;
+}
+
+.match-panel .play {
+  margin-top: 6px;
+}
+
+.round-line {
+  margin: 0;
+}
+
+.toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  z-index: 40;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 10px 18px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: toast-in 0.25s ease-out;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, -10px); }
 }
