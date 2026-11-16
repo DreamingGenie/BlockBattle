@@ -96,6 +96,9 @@ bash deploy/deploy.sh <공인 IP> <키 파일.pem>
 | `/ai/` | IP당 초당 20회, 순간 40회(넘으면 화면이 규칙 AI로 대신 둔다) |
 | `/ws` | IP당 동시 연결 60개 |
 | 컨테이너 메모리 | mysql 768m · redis 384m · backend 1200m · ai 384m(CPU 1개) · nginx 128m, 로그는 서비스마다 10MB × 3개 |
+| Redis | `maxmemory 256mb`, `volatile-lru`(오래 안 쓴 TTL 키부터 지움) |
+
+Redis가 상한에 닿았는지는 서버에서 `docker compose -p block-battle exec redis redis-cli INFO stats | grep evicted_keys`로 본다. 0보다 크면 비정상적으로 키가 늘었다는 뜻이니 원인을 확인한다.
 
 ## 시험
 

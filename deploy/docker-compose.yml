@@ -35,7 +35,10 @@ services:
     restart: unless-stopped
     mem_limit: 384m
     logging: *default-logging
-    command: ["redis-server", "--appendonly", "yes"]
+    # 메모리 상한(T-34, 보안 점검 H-3): 모든 키에 TTL이 있어(방 30분·Refresh 7일) volatile-lru가 맞다.
+    # 진행 중인 방 키는 lock마다 읽혀 가장 늦게 지워지고, 오래 안 쓴 Refresh·쉬는 방 키부터 지워진다.
+    # noeviction은 상한에서 모든 쓰기를 거부해 진행 중 경기의 lock까지 실패하므로 쓰지 않는다.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
     volumes:
       - redis-data:/data
     healthcheck:
