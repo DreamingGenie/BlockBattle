@@ -94,7 +94,7 @@ export function RankingScreen() {
           <ol className="podium">
             {[1, 0, 2].map((i) => {
               const r = rows[i];
-              if (!r) return <li key={i} className="podium-slot empty" />;
+              if (!r) return null; // 빈 자리는 그리지 않아 있는 칸끼리 가운데로 모인다(T-45)
               return (
                 <li key={r.userId} className={`podium-slot place-${r.rank}${r.userId === me?.userId ? ' mine' : ''}`} style={{ animationDelay: `${i * 90}ms` }}>
                   <span className="medal">{r.rank}</span>
