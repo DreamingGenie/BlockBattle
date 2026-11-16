@@ -57,7 +57,7 @@ export function AiScreen() {
     setOutcome(null);
     (async () => {
       try {
-        const started = await api.post<Started>('/matches', { mode: 'AI', aiDifficulty: difficulty });
+        const started = await api.post<Started>('/matches', { mode: 'AI', aiDifficulty: difficulty }, { retryUnavailable: true });
         if (currentRound.current !== round) return;
         match.current = started;
         me.current = new Game(started.seed);
@@ -93,7 +93,7 @@ export function AiScreen() {
       if (!m || !me.current || !ai.current) return;
       setPhase('saving');
       try {
-        const saved = await api.post<{ ranked: boolean }>(`/matches/${m.matchId}/result`, aiResultBody(me.current, ai.current, win, playMs.current));
+        const saved = await api.post<{ ranked: boolean }>(`/matches/${m.matchId}/result`, aiResultBody(me.current, ai.current, win, playMs.current), { retryUnavailable: true });
         setOutcome({ win, ranked: saved.ranked });
         reloadMe().catch(() => {});
         setPhase('result');

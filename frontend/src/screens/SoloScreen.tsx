@@ -56,7 +56,7 @@ export function SoloScreen() {
     setRanking(null);
     (async () => {
       try {
-        const started = await api.post<Started>('/matches', { mode: 'SOLO' });
+        const started = await api.post<Started>('/matches', { mode: 'SOLO' }, { retryUnavailable: true });
         if (currentRound.current !== round) return;
         match.current = started;
         game.current = new Game(started.seed);
@@ -78,7 +78,7 @@ export function SoloScreen() {
     setPhase('saving');
     try {
       // 결과는 경기당 한 번만 저장한다(API-009, 두 번째는 서버가 거부)
-      setSaved(await api.post<Saved>(`/matches/${m.matchId}/result`, soloResultBody(g, playMs.current)));
+      setSaved(await api.post<Saved>(`/matches/${m.matchId}/result`, soloResultBody(g, playMs.current), { retryUnavailable: true }));
       setRanking(await api.get<Ranking>('/rankings/solo'));
       reloadMe().catch(() => {});
       setPhase('result');

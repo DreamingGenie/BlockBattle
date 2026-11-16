@@ -35,7 +35,16 @@ export interface RequestOptions {
   /** 인증 헤더를 붙이고 401이면 재발급을 시도한다 */
   auth?: boolean;
   query?: Record<string, string | number | undefined>;
+  /**
+   * 502·503·504(nginx가 backend에 닿지 못함)나 네트워크 오류면 RETRY_DELAYS_MS 간격으로 다시 보낸다(T-36).
+   * 배포로 backend가 다시 뜨는 동안 경기 시작·결과 저장이 실패하지 않게 한다. 4xx·500은 다시 보내지 않는다.
+   */
+  retryUnavailable?: boolean;
 }
+
+/** 합 30초: backend 기동(약 10초)을 덮는다 */
+export const RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000];
+const UNAVAILABLE = new Set([502, 503, 504]);
 
 export class ApiClient {
   private accessToken: string | null = null;
@@ -45,6 +54,7 @@ export class ApiClient {
   constructor(
     private readonly fetchFn: FetchFn = (input, init) => fetch(input, init),
     private readonly base = '/api/v1',
+    private readonly sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
   ) {}
 
   get token(): string | null {
@@ -68,18 +78,32 @@ export class ApiClient {
     const headers: Record<string, string> = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (auth && this.accessToken) headers.Authorization = `Bearer ${this.accessToken}`;
-    const res = await this.fetchFn(this.base + path + queryString(options.query), {
+    const init: RequestInit = {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       credentials: 'same-origin',
-    });
+    };
+    const res = await this.send(this.base + path + queryString(options.query), init, options.retryUnavailable ?? false);
     if (res.status === 401 && auth && !retried) {
       if (await this.refresh()) return this.request<T>(method, path, body, options, true);
       this.loseSession();
       throw new ApiError(401, 'UNAUTHORIZED', '다시 로그인해 주세요.');
     }
     return unwrap<T>(res);
+  }
+
+  private async send(url: string, init: RequestInit, retry: boolean): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+      const last = !retry || attempt >= RETRY_DELAYS_MS.length;
+      try {
+        const res = await this.fetchFn(url, init);
+        if (last || !UNAVAILABLE.has(res.status)) return res;
+      } catch (e) {
+        if (last) throw e;
+      }
+      await this.sleep(RETRY_DELAYS_MS[attempt]!);
+    }
   }
 
   /** Refresh 쿠키로 Access 토큰을 다시 받는다(API-002). 동시에 여러 요청이 401을 받아도 한 번만 보낸다 */
