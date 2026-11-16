@@ -7,7 +7,7 @@ import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
 import { applyActions, inputSound, useKeyboard } from '../game/controls';
 import { FxControls } from '../game/FxControls';
 import { InputState } from '../game/input';
-import { revealOnMount } from '../game/reveal';
+import { ResultModal } from '../game/ResultModal';
 import { soloResultBody } from '../game/result';
 import { useGameLoop } from '../game/useGameLoop';
 
@@ -175,8 +175,8 @@ export function SoloScreen() {
         </aside>
       </section>
       {phase === 'result' && saved && (
-        <section className="card result" ref={revealOnMount}>
-          <h2>게임 종료 — {game.current?.score.toLocaleString()}점</h2>
+        <ResultModal tone={saved.newBest ? 'win' : 'over'} title={saved.newBest ? 'NEW RECORD' : 'GAME OVER'}>
+          <p className="result-score num">{game.current?.score.toLocaleString()}점</p>
           <p>
             {saved.newBest ? <span className="ok">최고 점수 갱신!</span> : '최고 점수는 그대로입니다.'}{' '}
             {saved.ranked ? '' : <span className="muted">(점수 검사에 걸려 랭킹에는 반영되지 않았습니다)</span>}
@@ -212,7 +212,7 @@ export function SoloScreen() {
               로비로
             </button>
           </div>
-        </section>
+        </ResultModal>
       )}
     </main>
   );

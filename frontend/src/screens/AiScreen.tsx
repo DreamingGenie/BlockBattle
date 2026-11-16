@@ -9,7 +9,8 @@ import { applyActions, inputSound, useKeyboard } from '../game/controls';
 import { FxControls } from '../game/FxControls';
 import { sfx } from '../game/sound';
 import { InputState } from '../game/input';
-import { revealOnMount } from '../game/reveal';
+import { ResultModal } from '../game/ResultModal';
+import { formatWinTime } from './RankingScreen';
 import { useGameLoop } from '../game/useGameLoop';
 import { aiResultBody, forwardAttacks } from '../game/versus';
 
@@ -20,11 +21,12 @@ interface Started {
 
 type Phase = 'choose' | 'starting' | 'playing' | 'saving' | 'result' | 'error';
 
-const DIFFICULTIES: { value: Difficulty; label: string; note: string }[] = [
-  { value: 'EASY', label: 'EASY', note: '가끔 실수하고, 블록 하나에 2초씩 씁니다' },
-  { value: 'NORMAL', label: 'NORMAL', note: '한 수만 보고, 블록 하나에 1.5초씩 씁니다' },
-  { value: 'HARD', label: 'HARD', note: '다음 블록까지 보고, 블록 하나에 1초씩 씁니다' },
-  { value: 'IMPOSSIBLE', label: 'IMPOSSIBLE', note: 'T-스핀 자리까지 찾고 쉬지 않고 놓습니다' },
+/** 난이도 선택 타일: 별 개수로 세기를 보여 준다(설명 문구 없이) */
+const DIFFICULTIES: { value: Difficulty; stars: number }[] = [
+  { value: 'EASY', stars: 1 },
+  { value: 'NORMAL', stars: 2 },
+  { value: 'HARD', stars: 3 },
+  { value: 'IMPOSSIBLE', stars: 4 },
 ];
 
 /** vs AI(FR-AI-01~03, REQ-007·008): 같은 시드의 두 엔진, AI는 서버 수 + 150ms 초과·오류 시 규칙 AI */
@@ -157,16 +159,26 @@ export function AiScreen() {
           <strong>vs AI</strong>
           <span />
         </header>
-        <section className="card stack" style={{ marginTop: 16, maxWidth: 520 }}>
-          <h2>난이도</h2>
-          {DIFFICULTIES.map((d) => (
-            <label key={d.value} className="row">
-              <input type="radio" name="difficulty" checked={difficulty === d.value} onChange={() => setDifficulty(d.value)} />
-              <strong>{d.label}</strong>
-              <span className="muted">{d.note}</span>
-            </label>
-          ))}
-          <button onClick={() => setRound((r) => r + 1)}>시작</button>
+        <section className="difficulty-pick">
+          <h2 className="pick-title">SELECT DIFFICULTY</h2>
+          <div className="difficulty-grid" role="radiogroup" aria-label="난이도">
+            {DIFFICULTIES.map((d) => (
+              <button
+                key={d.value}
+                role="radio"
+                aria-checked={difficulty === d.value}
+                className={`difficulty-tile tile-${d.value.toLowerCase()}${difficulty === d.value ? ' selected' : ''}`}
+                onClick={() => setDifficulty(d.value)}
+                onDoubleClick={() => setRound((r) => r + 1)}
+              >
+                <span className="tile-stars" aria-hidden="true">{'★'.repeat(d.stars)}</span>
+                <span className="tile-name">{d.value}</span>
+              </button>
+            ))}
+          </div>
+          <button className="start-button" onClick={() => setRound((r) => r + 1)}>
+            START
+          </button>
         </section>
       </main>
     );
@@ -202,8 +214,8 @@ export function AiScreen() {
         </div>
       </section>
       {phase === 'result' && outcome && (
-        <section className="card result" ref={revealOnMount}>
-          <h2>{outcome.win ? '승리!' : '패배'}</h2>
+        <ResultModal tone={outcome.win ? 'win' : 'lose'} title={outcome.win ? 'VICTORY' : 'DEFEAT'}>
+          <p className="result-sub">{outcome.win ? `AI ${difficulty}를 ${formatWinTime(playMs.current)}만에 이겼습니다!` : `AI ${difficulty}에게 졌습니다`}</p>
           <p className="muted">
             내 점수 {me.current?.score.toLocaleString()} · AI 점수 {ai.current?.score.toLocaleString()}
             {outcome.ranked ? '' : ' · 점수 검사에 걸려 기록에 표시만 됩니다'}
@@ -220,7 +232,7 @@ export function AiScreen() {
               로비로
             </button>
           </div>
-        </section>
+        </ResultModal>
       )}
     </main>
   );

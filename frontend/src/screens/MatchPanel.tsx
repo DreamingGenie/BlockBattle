@@ -1,3 +1,4 @@
+import { ResultModal } from '../game/ResultModal';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Game, boardFromString, emptyBoard, type Board } from '../engine';
 import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
@@ -205,8 +206,10 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
         </div>
       </div>
       {over && (
-        <div className="card result stack">
-          <h2>{over.winnerUserId === null ? '무승부' : iWon ? '승리!' : '패배'}</h2>
+        <ResultModal
+          tone={over.winnerUserId === null ? 'draw' : iWon ? 'win' : 'lose'}
+          title={over.winnerUserId === null ? 'DRAW' : iWon ? 'VICTORY' : 'DEFEAT'}
+        >
           <p className="muted">{REASON_TEXT[over.reason]}</p>
           <p>
             승수:{' '}
@@ -257,7 +260,7 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
               </p>
             </div>
           )}
-        </div>
+        </ResultModal>
       )}
     </section>
   );

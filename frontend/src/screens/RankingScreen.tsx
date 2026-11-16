@@ -83,44 +83,46 @@ export function RankingScreen() {
         <strong>랭킹</strong>
         <span className="muted">{mine ? `내 기록 ${mine}` : ''}</span>
       </header>
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="rank-tabs" role="tablist">
         {TABS.map((t) => (
-          <button key={t} className={tab === t ? undefined : 'secondary'} onClick={() => setTab(t)}>
-            {t === 'SOLO' ? '싱글' : `AI ${t}`}
+          <button key={t} role="tab" aria-selected={tab === t} className={`rank-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
+            {t === 'SOLO' ? '싱글' : t}
           </button>
         ))}
       </div>
-      <p className="muted small">{tab === 'SOLO' ? '싱글 최고 점수 순입니다.' : `AI ${tab}를 가장 빨리 이긴 시간 순입니다.`}</p>
+      <p className="muted small rank-caption">{tab === 'SOLO' ? '싱글 최고 점수 순' : `AI ${tab}를 가장 빨리 이긴 시간 순`}</p>
       {error && <p className="error">{error}</p>}
-      {rows && (
-        <section className="card">
-          {rows.length === 0 ? (
-            <p className="muted">아직 기록이 없습니다.</p>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>순위</th>
-                    <th>플레이어</th>
-                    <th>{tab === 'SOLO' ? '점수' : '승리 시간'}</th>
-                    <th>달성</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.userId} style={r.userId === me?.userId ? { fontWeight: 700 } : undefined}>
-                      <td className="num">{r.rank}</td>
-                      <td>{r.name}</td>
-                      <td className="num">{r.value}</td>
-                      <td>{formatTime(r.achievedAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {rows && rows.length === 0 && <p className="muted rank-empty">아직 기록이 없습니다. 첫 번째 주인공이 되어 보세요!</p>}
+      {rows && rows.length > 0 && (
+        <div key={tab} className="rank-board">
+          <ol className="podium">
+            {[1, 0, 2].map((i) => {
+              const r = rows[i];
+              if (!r) return <li key={i} className="podium-slot empty" />;
+              return (
+                <li key={r.userId} className={`podium-slot place-${r.rank}${r.userId === me?.userId ? ' mine' : ''}`} style={{ animationDelay: `${i * 90}ms` }}>
+                  <span className="medal">{r.rank}</span>
+                  <span className="podium-name">{r.name}</span>
+                  <span className="podium-value num">{r.value}</span>
+                  <span className="podium-date muted small">{formatTime(r.achievedAt)}</span>
+                  <span className="podium-base" />
+                </li>
+              );
+            })}
+          </ol>
+          {rows.length > 3 && (
+            <ol className="rank-list" start={4}>
+              {rows.slice(3).map((r, i) => (
+                <li key={r.userId} className={`rank-row${r.userId === me?.userId ? ' mine' : ''}`} style={{ animationDelay: `${300 + i * 40}ms` }}>
+                  <span className="rank-no num">{r.rank}</span>
+                  <span className="rank-name">{r.name}</span>
+                  <span className="rank-value num">{r.value}</span>
+                  <span className="rank-date muted small">{formatTime(r.achievedAt)}</span>
+                </li>
+              ))}
+            </ol>
           )}
-        </section>
+        </div>
       )}
     </main>
   );
