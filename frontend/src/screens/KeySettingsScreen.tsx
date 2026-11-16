@@ -39,7 +39,7 @@ export function KeySettingsScreen() {
       e.stopPropagation();
       if (e.repeat) return;
       if (isReservedKey(e.code)) {
-        setNotice({ text: `${keyLabel(e.code) || '그 키'}는 브라우저·시스템 기능 키라 쓸 수 없습니다.`, tone: 'warn' });
+        setNotice({ text: `${keyLabel(e.code) ? `${keyLabel(e.code)} 키` : '그 키'}는 브라우저·시스템 기능 키라 쓸 수 없습니다.`, tone: 'warn' });
         return;
       }
       const { bindings: next, movedFrom } = assignKey(bindings, listening.action, listening.slot, e.code);

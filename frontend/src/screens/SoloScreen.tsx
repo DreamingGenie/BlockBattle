@@ -1,4 +1,4 @@
-import { controlsHelp } from '../game/keybindings';
+import { controlsHelp, keysText, loadBindings } from '../game/keybindings';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
@@ -136,7 +136,7 @@ export function SoloScreen() {
         <strong>싱글</strong>
         <span className="row">
           <FxControls />
-          <span className="muted small">Esc 일시정지</span>
+          <span className="muted small">{keysText(loadBindings(), 'pause')} 일시정지</span>
         </span>
       </header>
       <section className="play">
@@ -147,7 +147,7 @@ export function SoloScreen() {
             <div className="overlay">
               <div className="stack">
                 <h2>일시정지</h2>
-                <p className="muted">Esc를 다시 누르면 이어서 합니다.</p>
+                <p className="muted">{keysText(loadBindings(), 'pause')} 키를 다시 누르면 이어서 합니다.</p>
               </div>
             </div>
           )}

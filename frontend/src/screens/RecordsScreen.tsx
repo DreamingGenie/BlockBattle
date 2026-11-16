@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { errorMessage } from '../api/client';
+import { formatDuration } from '../app/format';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
 import { difficultyLabel } from '../ai/types';
@@ -33,11 +34,7 @@ export const END_TEXT: Record<string, string> = {
   EXPIRED: '만료',
 };
 
-export function formatDuration(ms: number | null): string {
-  if (ms == null) return '-';
-  const s = Math.round(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
+export { formatDuration } from '../app/format';
 
 /** '11월 14일 15:44'(올해가 아니면 '2025년 11월 14일 15:44') */
 export function formatTime(iso: string | null, now: Date = new Date()): string {

@@ -6,7 +6,7 @@
 - 깊이: EASY·NORMAL 1수, HARD·IMPOSSIBLE 2수(다음 블록까지, 상위 BEAM개만 펼침). 소프트 드롭·T-스핀은 IMPOSSIBLE만.
 - 실수: EASY만 EASY_MISTAKE_RATE 확률로 두 번째로 좋은 수를 둔다(rng를 넘기면 그것을 쓴다). 나머지는 결정론적이다.
 - VERY_EASY(T-41): 홀드를 쓰지 않고 다음 블록도 보지 않는다. VERY_EASY_RANDOM_RATE 확률로 놓을 수 있는 자리 중 아무 데나 둔다.
-  초보도 이길 수 있게 스스로 쌓다가 천장에 닿는 것이 목표다(공격도 FE에서 보내지 않는다).
+  초보도 이길 수 있게 스스로 쌓다가 천장에 닿는 것이 목표다.
 - 평가: GR-09 가중치 + T-스핀(IMPOSSIBLE)·방해 줄 대기 시 줄 삭제 가산점.
 """
 from __future__ import annotations

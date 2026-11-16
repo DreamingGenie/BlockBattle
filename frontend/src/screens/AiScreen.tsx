@@ -11,7 +11,7 @@ import { FxControls } from '../game/FxControls';
 import { sfx } from '../game/sound';
 import { InputState } from '../game/input';
 import { BotNotice, ResultModal } from '../game/ResultModal';
-import { formatWinTime } from './RankingScreen';
+import { formatWinTime, objectParticle } from '../app/format';
 import { useGameLoop } from '../game/useGameLoop';
 import { aiResultBody, forwardAttacks } from '../game/versus';
 
@@ -24,11 +24,11 @@ type Phase = 'choose' | 'starting' | 'playing' | 'saving' | 'result' | 'error';
 
 /** 난이도 선택 타일: 별 개수로 세기를 보여 준다(설명 문구 없이) */
 const DIFFICULTIES: { value: Difficulty; stars: number }[] = [
-  { value: 'VERY_EASY', stars: 0 },
-  { value: 'EASY', stars: 1 },
-  { value: 'NORMAL', stars: 2 },
-  { value: 'HARD', stars: 3 },
-  { value: 'IMPOSSIBLE', stars: 4 },
+  { value: 'VERY_EASY', stars: 1 },
+  { value: 'EASY', stars: 2 },
+  { value: 'NORMAL', stars: 3 },
+  { value: 'HARD', stars: 4 },
+  { value: 'IMPOSSIBLE', stars: 5 },
 ];
 
 /** vs AI(FR-AI-01~03, REQ-007·008): 같은 시드의 두 엔진, AI는 서버 수 + 150ms 초과·오류 시 규칙 AI */
@@ -124,8 +124,7 @@ export function AiScreen() {
       if (myEvents.some((e) => e.type === 'lock')) input.stats.lock(performance.now());
       const aiEvents = a.drainEvents();
       forwardAttacks(myEvents, a);
-      // VERY_EASY AI는 공격을 보내지 않는다(T-41: 줄을 빨리 못 지우는 사람도 버틸 수 있게)
-      if (difficulty !== 'VERY_EASY') forwardAttacks(aiEvents, g);
+      forwardAttacks(aiEvents, g);
       // 연출(REQ-023): 내 보드는 전부, AI 보드는 게임 오버 회색 처리만
       for (const e of myEvents) {
         if (e.type === 'lock') myBoard.current?.lock(e, g.combo);
@@ -176,7 +175,7 @@ export function AiScreen() {
                 onClick={() => setDifficulty(d.value)}
                 onDoubleClick={() => setRound((r) => r + 1)}
               >
-                <span className="tile-stars" aria-hidden="true">{d.stars ? '★'.repeat(d.stars) : '♥'}</span>
+                <span className="tile-stars" aria-hidden="true">{'★'.repeat(d.stars)}</span>
                 <span className="tile-name">{difficultyLabel(d.value)}</span>
               </button>
             ))}
@@ -223,13 +222,13 @@ export function AiScreen() {
       )}
       {phase === 'result' && outcome && !outcome.bot && (
         <ResultModal tone={outcome.win ? 'win' : 'lose'} title={outcome.win ? 'VICTORY' : 'DEFEAT'}>
-          <p className="result-sub">{outcome.win ? `AI ${difficultyLabel(difficulty)}를 ${formatWinTime(playMs.current)}만에 이겼습니다!` : `AI ${difficultyLabel(difficulty)}에게 졌습니다`}</p>
+          <p className="result-sub">{outcome.win ? `AI ${difficultyLabel(difficulty)}${objectParticle(difficulty)} ${formatWinTime(playMs.current)} 만에 이겼습니다!` : `AI ${difficultyLabel(difficulty)}에게 졌습니다`}</p>
           <p className="muted">
             내 점수 {me.current?.score.toLocaleString()} · AI 점수 {ai.current?.score.toLocaleString()}
-            {outcome.ranked ? '' : ' · 점수 검사에 걸려 기록에 표시만 됩니다'}
+            {outcome.ranked ? '' : ' · 점수 검사에 걸려 랭킹에는 반영되지 않습니다'}
           </p>
           <p className="muted small">
-            AI 서버 응답 {hud.server}수 · 규칙 AI 대체 {hud.fallback}수
+            AI 판단: 서버 {hud.server}번 · 예비 규칙 {hud.fallback}번
           </p>
           <div className="row">
             <button onClick={() => setRound((r) => r + 1)}>다시 하기</button>

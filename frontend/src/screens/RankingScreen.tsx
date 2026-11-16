@@ -3,6 +3,7 @@ import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
 import { formatTime } from './RecordsScreen';
+import { formatWinTime, objectParticle } from '../app/format';
 import { difficultyLabel } from '../ai/types';
 
 /** GET /rankings/solo (API-010) */
@@ -21,12 +22,6 @@ interface AiRanking {
 const TABS = ['SOLO', 'VERY_EASY', 'EASY', 'NORMAL', 'HARD', 'IMPOSSIBLE'] as const;
 type Tab = (typeof TABS)[number];
 
-/** 승리 시간 '1:23.4' */
-export function formatWinTime(ms: number): string {
-  const tenths = Math.floor(ms / 100);
-  const s = Math.floor(tenths / 10);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}.${tenths % 10}`;
-}
 
 interface Row {
   rank: number;
@@ -91,7 +86,7 @@ export function RankingScreen() {
           </button>
         ))}
       </div>
-      <p className="muted small rank-caption">{tab === 'SOLO' ? '싱글 최고 점수 순' : `AI ${difficultyLabel(tab)}를 가장 빨리 이긴 시간 순`}</p>
+      <p className="muted small rank-caption">{tab === 'SOLO' ? '싱글 최고 점수 순' : `AI ${difficultyLabel(tab)}${objectParticle(tab)} 가장 빨리 이긴 시간 순`}</p>
       {error && <p className="error">{error}</p>}
       {rows && rows.length === 0 && <p className="muted rank-empty">아직 기록이 없습니다. 첫 번째 주인공이 되어 보세요!</p>}
       {rows && rows.length > 0 && (

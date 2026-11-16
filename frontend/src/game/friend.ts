@@ -60,7 +60,7 @@ export interface GameOverPayload {
 
 export const REASON_TEXT: Record<GameOverPayload['reason'], string> = {
   TOP_OUT: '블록이 천장에 닿음',
-  DRAW: '동시 topout — 무승부',
+  DRAW: '두 사람이 동시에 천장에 닿아 무승부',
   LEFT: '경기 중 퇴장',
   DISCONNECT: '연결이 끊긴 뒤 10초 안에 돌아오지 않음',
 };
