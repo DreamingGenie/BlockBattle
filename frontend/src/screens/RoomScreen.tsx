@@ -183,6 +183,7 @@ export function RoomScreen({ code }: { code: string }) {
       {room && participant && !closed && me && (
         <MatchPanel
           ref={match}
+          onLeave={leave}
           code={code}
           myId={me.userId}
           names={names}

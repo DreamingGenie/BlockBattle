@@ -1003,3 +1003,97 @@ button.key-clear:hover {
   0% { box-shadow: 0 0 0 0 rgba(87, 171, 90, 0.9); border-color: var(--ok); }
   100% { box-shadow: 0 0 0 10px rgba(87, 171, 90, 0); }
 }
+
+/* ── 봇 의심 알림(BotNotice) ── */
+.result-bot {
+  border-color: #a35fd3;
+  box-shadow: 0 0 0 1px rgba(163, 95, 211, 0.3), 0 0 60px rgba(163, 95, 211, 0.35);
+  animation: pop-in 0.42s cubic-bezier(0.2, 1.4, 0.4, 1), shake 0.45s ease-in-out 0.42s;
+}
+
+.result-bot .result-title {
+  color: #c88cf0;
+  text-shadow: 0 0 22px rgba(163, 95, 211, 0.8), 0 3px 0 #4b2268;
+}
+
+.bot-badge {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6, transparent 45%), #a35fd3;
+  color: #1a0b25;
+  font-size: 32px;
+  font-weight: 900;
+  box-shadow: 0 0 0 4px rgba(163, 95, 211, 0.3), 0 0 30px rgba(163, 95, 211, 0.6);
+  animation: glow-bot 1.8s ease-in-out infinite;
+}
+
+.bot-why {
+  margin: 0;
+}
+
+.bot-appeal {
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-left: 4px solid #a35fd3;
+  border-radius: 8px;
+}
+
+.bot-appeal ol {
+  margin: 8px 0 12px;
+  padding-left: 20px;
+}
+
+.bot-appeal li {
+  margin: 4px 0;
+}
+
+.bot-info {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.bot-info dt {
+  color: var(--muted);
+}
+
+.bot-info dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+button.link.inline {
+  display: inline;
+  padding: 0;
+  color: #c88cf0;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+a.button-like {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: 4px;
+  padding: 9px 16px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+a.button-like:hover {
+  filter: brightness(1.08);
+}
+
+@keyframes glow-bot {
+  50% { box-shadow: 0 0 0 6px rgba(163, 95, 211, 0.45), 0 0 40px rgba(163, 95, 211, 0.85); }
+}

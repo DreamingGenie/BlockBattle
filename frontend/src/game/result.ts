@@ -1,9 +1,10 @@
 import type { Game } from '../engine';
 
 /** POST /matches/{id}/result 본문(API 명세 3.9). 싱글은 result·ai·공격 수치를 보내지 않는다 */
-export function soloResultBody(game: Game, durationMs: number) {
+export function soloResultBody(game: Game, durationMs: number, keyPresses?: number) {
   return {
     durationMs: Math.round(durationMs),
+    keyPresses,
     player: {
       score: game.score,
       linesCleared: game.linesCleared,

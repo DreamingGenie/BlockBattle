@@ -55,6 +55,13 @@ describe('InputState', () => {
     expect(input.update(16)).toEqual(['rotateCW', 'rotateCCW', 'hold']);
   });
 
+  it('게임 동작으로 이어진 키 입력만 센다(T-39 봇 판정: 깨지면 정상 플레이어가 봇으로 몰리거나 봇이 통과한다)', () => {
+    const input = new InputState(DEFAULT_BINDINGS);
+    for (const code of ['ArrowLeft', 'Space', 'KeyQ', 'Digit1', 'ArrowUp']) input.press(code);
+    input.release('ArrowLeft');
+    expect(input.presses).toBe(3);
+  });
+
   it('바꾼 키 설정을 따른다: 새 키로 움직이고, 지정하지 않은 키는 무시하고 잡지도 않는다(T-38)', () => {
     const input = new InputState({ ...DEFAULT_BINDINGS, left: ['KeyA'], right: ['KeyD'] });
     input.press('ArrowLeft');

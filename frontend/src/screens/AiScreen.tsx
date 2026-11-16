@@ -9,7 +9,7 @@ import { applyActions, inputSound, useKeyboard } from '../game/controls';
 import { FxControls } from '../game/FxControls';
 import { sfx } from '../game/sound';
 import { InputState } from '../game/input';
-import { ResultModal } from '../game/ResultModal';
+import { BotNotice, ResultModal } from '../game/ResultModal';
 import { formatWinTime } from './RankingScreen';
 import { useGameLoop } from '../game/useGameLoop';
 import { aiResultBody, forwardAttacks } from '../game/versus';
@@ -37,7 +37,7 @@ export function AiScreen() {
   const [error, setError] = useState<string | null>(null);
   const [round, setRound] = useState(0);
   const [hud, setHud] = useState({ me: 0, ai: 0, server: 0, fallback: 0 });
-  const [outcome, setOutcome] = useState<{ win: boolean; ranked: boolean } | null>(null);
+  const [outcome, setOutcome] = useState<{ win: boolean; ranked: boolean; bot: boolean; matchId: number } | null>(null);
   const match = useRef<Started | null>(null);
   const me = useRef<Game | null>(null);
   const ai = useRef<Game | null>(null);
@@ -67,6 +67,7 @@ export function AiScreen() {
         myBoard.current?.reset();
         aiBoard.current?.reset();
         playMs.current = 0;
+        input.presses = 0;
         ended.current = false;
         controller.current?.stop();
         controller.current = new AiController(ai.current, difficulty, {
@@ -82,7 +83,7 @@ export function AiScreen() {
         setPhase('error');
       }
     })();
-  }, [api, round, difficulty]);
+  }, [api, round, difficulty, input]);
 
   useEffect(() => () => controller.current?.stop(), []);
 
@@ -95,8 +96,8 @@ export function AiScreen() {
       if (!m || !me.current || !ai.current) return;
       setPhase('saving');
       try {
-        const saved = await api.post<{ ranked: boolean }>(`/matches/${m.matchId}/result`, aiResultBody(me.current, ai.current, win, playMs.current), { retryUnavailable: true });
-        setOutcome({ win, ranked: saved.ranked });
+        const saved = await api.post<{ ranked: boolean; botSuspected?: boolean }>(`/matches/${m.matchId}/result`, aiResultBody(me.current, ai.current, win, playMs.current, input.presses), { retryUnavailable: true });
+        setOutcome({ win, ranked: saved.ranked, bot: saved.botSuspected === true, matchId: m.matchId });
         reloadMe().catch(() => {});
         setPhase('result');
       } catch (e) {
@@ -104,7 +105,7 @@ export function AiScreen() {
         setPhase('error');
       }
     },
-    [api, reloadMe],
+    [api, reloadMe, input],
   );
 
   useKeyboard(input, phase === 'playing');
@@ -213,7 +214,10 @@ export function AiScreen() {
           <BoardCanvas ref={aiBoard} cell={20} label="AI 보드" />
         </div>
       </section>
-      {phase === 'result' && outcome && (
+      {phase === 'result' && outcome?.bot && (
+        <BotNotice matchId={outcome.matchId} onRetry={() => setRound((r) => r + 1)} />
+      )}
+      {phase === 'result' && outcome && !outcome.bot && (
         <ResultModal tone={outcome.win ? 'win' : 'lose'} title={outcome.win ? 'VICTORY' : 'DEFEAT'}>
           <p className="result-sub">{outcome.win ? `AI ${difficulty}를 ${formatWinTime(playMs.current)}만에 이겼습니다!` : `AI ${difficulty}에게 졌습니다`}</p>
           <p className="muted">

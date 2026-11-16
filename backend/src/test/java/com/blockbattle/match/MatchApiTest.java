@@ -239,6 +239,25 @@ class MatchApiTest {
         expectError(result(token, old, SOLO_RESULT), 409, "MATCH_ALREADY_FINISHED");
     }
 
+    /** T-39: 깨지면 봇 의심 결과가 전적·랭킹에 들어가거나 화면이 알림을 띄울 근거(botSuspected)가 사라진다 */
+    @Test
+    void 키_입력_없이_블록을_놓은_결과는_봇_의심으로_저장만_하고_전적에_넣지_않는다() throws Exception {
+        long ai = startAi();
+        JsonNode saved = data(result(token, ai, """
+                {"result":"WIN","durationMs":120000,"keyPresses":3,
+                 "player":{"score":3000,"linesCleared":10,"level":2,"piecesPlaced":60,"attackSent":4,"attackReceived":0,"maxCombo":1},
+                 "ai":{"score":100,"linesCleared":0,"level":1,"piecesPlaced":40,"attackSent":0,"attackReceived":4,"maxCombo":0}}"""));
+        assertThat(saved.get("botSuspected").asBoolean()).isTrue();
+        assertThat(saved.get("ranked").asBoolean()).isFalse();
+        assertThat(jdbc.queryForObject("SELECT ai_wins FROM user_stats WHERE user_id = ?", Integer.class, userId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT status FROM matches WHERE id = ?", String.class, ai)).isEqualTo("FINISHED");
+
+        long solo = startSolo();
+        JsonNode human = data(result(token, solo, SOLO_RESULT.replace("{\"durationMs\"", "{\"keyPresses\":500,\"durationMs\"")));
+        assertThat(human.get("botSuspected").asBoolean()).isFalse();
+        assertThat(human.get("ranked").asBoolean()).isTrue();
+    }
+
     /** 시작한 뒤 200초 동안 플레이한 것처럼 시작 시각을 당긴다(상한 ⑤: 플레이 시간 184초 ≤ 서버 경과 + 2초) */
     private long startSolo() throws Exception {
         return played(data(start(token, "{\"mode\":\"SOLO\"}")).get("matchId").asLong());

@@ -15,7 +15,7 @@ export function forwardAttacks(events: GameEvent[], target: Game, rand: () => nu
 }
 
 /** POST /matches/{id}/result 본문(API 명세 3.9) — vs AI는 승패와 양쪽 성적(공격 보냄·받음 포함) */
-export function aiResultBody(me: Game, ai: Game, win: boolean, durationMs: number) {
+export function aiResultBody(me: Game, ai: Game, win: boolean, durationMs: number, keyPresses?: number) {
   const stats = (g: Game) => ({
     score: g.score,
     linesCleared: g.linesCleared,
@@ -25,5 +25,5 @@ export function aiResultBody(me: Game, ai: Game, win: boolean, durationMs: numbe
     attackReceived: g.attackReceived,
     maxCombo: Math.max(0, g.maxCombo),
   });
-  return { result: win ? 'WIN' : 'LOSE', durationMs: Math.round(durationMs), player: stats(me), ai: stats(ai) };
+  return { result: win ? 'WIN' : 'LOSE', durationMs: Math.round(durationMs), keyPresses, player: stats(me), ai: stats(ai) };
 }

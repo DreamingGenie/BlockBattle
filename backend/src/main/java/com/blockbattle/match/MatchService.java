@@ -19,15 +19,18 @@ public class MatchService {
     public record Started(long matchId, long seed, Instant startedAt) {
     }
 
-    /** SOLO면 result·ai·player.attackSent·attackReceived는 null이어야 한다 */
-    public record ResultInput(String result, Integer durationMs, Stats player, Stats ai) {
+    /**
+     * SOLO면 result·ai·player.attackSent·attackReceived는 null이어야 한다.
+     * keyPresses는 경기 중 실제 키 입력 수(T-39, 선택). 없으면 봇 판정 ②를 건너뛴다.
+     */
+    public record ResultInput(String result, Integer durationMs, Stats player, Stats ai, Integer keyPresses) {
     }
 
     public record Stats(Integer score, Integer linesCleared, Integer level, Integer piecesPlaced, Integer attackSent,
                         Integer attackReceived, Integer maxCombo) {
     }
 
-    public record Saved(long matchId, long userId, String mode, boolean ranked, boolean newBest, int score) {
+    public record Saved(long matchId, long userId, String mode, boolean ranked, boolean newBest, int score, boolean botSuspected) {
     }
 
     static final Duration UNSAVED_LIMIT = Duration.ofHours(2);
@@ -72,21 +75,25 @@ public class MatchService {
         int received = aiMode ? p.attackReceived() : 0;
         Instant now = clock.instant();
         long serverElapsedMs = Duration.between(match.startedAt(), now).toMillis();
-        boolean ranked = ResultLimits.withinLimits(p.score(), p.linesCleared(), p.level(), p.piecesPlaced(), received,
+        boolean bot = BotCheck.suspect(p.piecesPlaced(), serverElapsedMs, input.keyPresses());
+        boolean ranked = !bot && ResultLimits.withinLimits(p.score(), p.linesCleared(), p.level(), p.piecesPlaced(), received,
                 p.maxCombo(), input.durationMs(), serverElapsedMs);
 
         boolean win = "WIN".equals(input.result());
         matches.finish(matchId, now, input.durationMs(), ranked, aiMode && win ? userId : null);
         matches.updatePlayer(matchId, 1, aiMode ? input.result() : "NONE", toRow(p));
         boolean newBest = false;
-        if (aiMode) {
+        if (bot) {
+            // 봇 의심: 경기 행만 남기고(소명·검토용) 전적·최고 점수·랭킹에는 넣지 않는다(T-39)
+            if (aiMode) matches.updatePlayer(matchId, 2, win ? "LOSE" : "WIN", toRow(input.ai()));
+        } else if (aiMode) {
             matches.updatePlayer(matchId, 2, win ? "LOSE" : "WIN", toRow(input.ai()));
             users.recordAiResult(userId, win, now);
         } else {
             users.incrementSoloGames(userId, now);
             newBest = ranked && users.raiseSoloBest(userId, p.score(), now);
         }
-        return new Saved(matchId, userId, match.mode(), ranked, newBest, p.score());
+        return new Saved(matchId, userId, match.mode(), ranked, newBest, p.score(), bot);
     }
 
     /** BR-02: 시작 2시간이 지나도 결과가 없는 SOLO·AI 경기를 ABORTED(EXPIRED)로 닫는다. 전적은 바꾸지 않는다. */

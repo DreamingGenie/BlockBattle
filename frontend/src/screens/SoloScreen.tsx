@@ -8,7 +8,7 @@ import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
 import { applyActions, inputSound, useKeyboard } from '../game/controls';
 import { FxControls } from '../game/FxControls';
 import { InputState } from '../game/input';
-import { ResultModal } from '../game/ResultModal';
+import { BotNotice, ResultModal } from '../game/ResultModal';
 import { soloResultBody } from '../game/result';
 import { useGameLoop } from '../game/useGameLoop';
 
@@ -18,6 +18,8 @@ interface Started {
 }
 
 interface Saved {
+  matchId?: number;
+  botSuspected?: boolean;
   ranked: boolean;
   newBest: boolean;
   soloRank: number | null;
@@ -63,6 +65,7 @@ export function SoloScreen() {
         game.current = new Game(started.seed);
         board.current?.reset();
         playMs.current = 0;
+        input.presses = 0;
         setHud({ score: 0, lines: 0, level: 1 });
         setPhase('playing');
       } catch (e) {
@@ -79,7 +82,7 @@ export function SoloScreen() {
     setPhase('saving');
     try {
       // 결과는 경기당 한 번만 저장한다(API-009, 두 번째는 서버가 거부)
-      setSaved(await api.post<Saved>(`/matches/${m.matchId}/result`, soloResultBody(g, playMs.current), { retryUnavailable: true }));
+      setSaved(await api.post<Saved>(`/matches/${m.matchId}/result`, soloResultBody(g, playMs.current, input.presses), { retryUnavailable: true }));
       setRanking(await api.get<Ranking>('/rankings/solo'));
       reloadMe().catch(() => {});
       setPhase('result');
@@ -175,7 +178,10 @@ export function SoloScreen() {
           </p>
         </aside>
       </section>
-      {phase === 'result' && saved && (
+      {phase === 'result' && saved?.botSuspected && (
+        <BotNotice matchId={saved.matchId ?? match.current?.matchId ?? 0} onRetry={() => setRound((r) => r + 1)} />
+      )}
+      {phase === 'result' && saved && !saved.botSuspected && (
         <ResultModal tone={saved.newBest ? 'win' : 'over'} title={saved.newBest ? 'NEW RECORD' : 'GAME OVER'}>
           <p className="result-score num">{game.current?.score.toLocaleString()}점</p>
           <p>

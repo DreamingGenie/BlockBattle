@@ -22,6 +22,8 @@ export class InputState {
   private heldDirs: ('left' | 'right')[] = [];
   private queue: Action[] = [];
   private readonly byCode = new Map<string, BindAction>();
+  /** 게임 동작으로 이어진 실제 키 입력 수(T-39 봇 판정용, 결과와 함께 서버로 보낸다) */
+  presses = 0;
 
   /** bindings를 주지 않으면 저장된 키 설정을 읽는다 */
   constructor(bindings: KeyBindings = typeof localStorage === 'undefined' ? DEFAULT_BINDINGS : loadBindings()) {
@@ -38,6 +40,7 @@ export class InputState {
   /** keydown(자동 반복 이벤트는 무시해야 한다 — DAS·ARR은 여기서 직접 센다) */
   press(code: string): void {
     const bound = this.byCode.get(code);
+    if (bound) this.presses++;
     if (bound === 'left' || bound === 'right') {
       const dir = bound;
       this.heldDirs = this.heldDirs.filter((d) => d !== dir).concat(dir);

@@ -57,13 +57,14 @@ export function applyActions(game: Game, actions: Action[], onApplied?: (action:
 export function useKeyboard(input: InputState, enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return;
+    // 스크립트가 dispatchEvent로 만든 가짜 키(isTrusted=false)는 게임에 넣지 않는다(T-39)
     const down = (e: KeyboardEvent) => {
-      if (!input.handles(e.code)) return;
+      if (!e.isTrusted || !input.handles(e.code)) return;
       e.preventDefault();
       if (!e.repeat) input.press(e.code);
     };
     const up = (e: KeyboardEvent) => {
-      if (!input.handles(e.code)) return;
+      if (!e.isTrusted || !input.handles(e.code)) return;
       e.preventDefault();
       input.release(e.code);
     };

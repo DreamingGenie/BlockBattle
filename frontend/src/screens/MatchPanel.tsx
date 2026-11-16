@@ -26,13 +26,15 @@ interface Props {
   connected: boolean;
   send: (destination: string, body: unknown) => boolean;
   resubscribeState: () => (() => void) | undefined;
+  /** 방을 나가 로비로(결과 팝업의 버튼) */
+  onLeave: () => void;
 }
 
 /**
  * 친구 대전 진행(T-22, REQ-012~014): COUNTDOWN의 시드로 내 엔진을 startsAt에 시작하고 lock마다 서버로 보낸다.
  * 상대 보드·점수는 서버 BOARD, 방해 줄은 ATTACK을 그대로 쓴다. INVALID_LOCK·재접속 뒤에는 RESYNC로 서버 상태를 되살린다.
  */
-export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPanel({ code, myId, names, connected, send, resubscribeState }, ref) {
+export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPanel({ code, myId, names, connected, send, resubscribeState, onLeave }, ref) {
   const game = useRef<Game | null>(null);
   const matchId = useRef<number | null>(null);
   const startsAt = useRef(0);
@@ -242,6 +244,13 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
             </tbody>
           </table>
           {nextIn !== null && !seriesDone && <p>{nextIn > 0 ? `${nextIn}초 뒤 다음 라운드` : '다음 라운드 준비 중…'}</p>}
+          {!seriesDone && (
+            <div className="row">
+              <button className="secondary" onClick={onLeave}>
+                방 나가기
+              </button>
+            </div>
+          )}
           {seriesDone && (
             <div className="stack">
               <strong>{over.seriesWinnerUserId === myId ? '시리즈 승리!' : '시리즈 패배'}</strong>
@@ -251,6 +260,9 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
                 </button>
                 <button className="secondary" onClick={() => send(`/app/rooms/${code}/rematch`, { accept: false })}>
                   거절
+                </button>
+                <button className="secondary" onClick={onLeave}>
+                  로비로
                 </button>
               </div>
               <p className="muted">
