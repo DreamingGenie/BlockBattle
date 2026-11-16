@@ -91,6 +91,8 @@ class RankingApiTest {
         Player newcomer = guest("새내기");
         long matchId = data(mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + newcomer.token())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"mode\":\"SOLO\"}")).andReturn().getResponse()).get("matchId").asLong();
+        // 184초 플레이를 실제로 한 것처럼 시작 시각을 당긴다(T-30 상한 ⑤: 플레이 시간 ≤ 서버 경과 + 2초)
+        jdbc.update("UPDATE matches SET started_at = ? WHERE id = ?", Timestamp.from(Instant.now().minusSeconds(200)), matchId);
         JsonNode saved = data(mvc.perform(post("/api/v1/matches/" + matchId + "/result")
                 .header("Authorization", "Bearer " + newcomer.token()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"durationMs\":184000,\"player\":{\"score\":5000,\"linesCleared\":62,\"level\":7,\"piecesPlaced\":171,\"maxCombo\":5}}"))

@@ -149,6 +149,38 @@ class MatchApiTest {
         assertThat(redis.hasKey(RedisKeys.RANKING_SOLO)).isFalse();
     }
 
+    /** 깨지면: 시작 직후 긴 플레이 시간을 신고하는 위조가 다시 랭킹에 들어간다(보안 점검 H-1, 상한 ⑤) */
+    @Test
+    void 시작_직후_긴_플레이_시간을_신고하면_저장하되_ranked_false() throws Exception {
+        long matchId = data(start(token, "{\"mode\":\"SOLO\"}")).get("matchId").asLong();
+        JsonNode data = data(result(token, matchId, SOLO_RESULT));
+        assertThat(data.get("ranked").asBoolean()).isFalse();
+        assertThat(data.get("soloRank").isNull()).isTrue();
+        assertThat(jdbc.queryForObject("SELECT solo_best_score FROM user_stats WHERE user_id = ?", Integer.class, userId)).isZero();
+        assertThat(redis.hasKey(RedisKeys.RANKING_SOLO)).isFalse();
+    }
+
+    /** 보안 점검 보고서 H-1의 위조 요청 그대로. 깨지면: 게스트 하나로 랭킹 1위를 만들 수 있다 */
+    @Test
+    void 보고서의_위조_요청은_저장되지만_랭킹에_들어가지_않는다() throws Exception {
+        long matchId = data(start(token, "{\"mode\":\"SOLO\"}")).get("matchId").asLong();
+        MockHttpServletResponse res = result(token, matchId, """
+                {"durationMs":1000,"player":{"score":2147483647,"linesCleared":4,"level":1,"piecesPlaced":10,"maxCombo":50000000}}""");
+        assertThat(res.getStatus()).isEqualTo(200);
+        assertThat(data(res).get("ranked").asBoolean()).isFalse();
+        assertThat(jdbc.queryForObject("SELECT ranked FROM matches WHERE id = ?", Boolean.class, matchId)).isFalse();
+        assertThat(jdbc.queryForObject("SELECT solo_best_score FROM user_stats WHERE user_id = ?", Integer.class, userId)).isZero();
+        assertThat(redis.hasKey(RedisKeys.RANKING_SOLO)).isFalse();
+    }
+
+    /** 깨지면: vs AI도 시작 직후 결과를 신고할 수 있다(보안 점검 L-6 중 ranked 표시) */
+    @Test
+    void AI_경기도_시작_직후_긴_플레이_시간이면_ranked_false() throws Exception {
+        long matchId = data(start(token, "{\"mode\":\"AI\",\"aiDifficulty\":\"EASY\"}")).get("matchId").asLong();
+        result(token, matchId, aiResult("WIN"));
+        assertThat(jdbc.queryForObject("SELECT ranked FROM matches WHERE id = ?", Boolean.class, matchId)).isFalse();
+    }
+
     @Test
     void 최고_점수보다_낮으면_판_수만_오르고_newBest는_false() throws Exception {
         result(token, startSolo(), SOLO_RESULT);
@@ -160,7 +192,7 @@ class MatchApiTest {
 
     @Test
     void AI_승패는_승자와_양측_성적과_AI_전적에_반영된다() throws Exception {
-        long win = data(start(token, "{\"mode\":\"AI\",\"aiDifficulty\":\"EASY\"}")).get("matchId").asLong();
+        long win = startAi();
         JsonNode data = data(result(token, win, aiResult("WIN")));
         assertThat(data.get("newBest").asBoolean()).isFalse();
         assertThat(data.get("soloRank").isNull()).isTrue();
@@ -170,7 +202,7 @@ class MatchApiTest {
         assertThat(jdbc.queryForMap("SELECT result, score, attack_sent FROM match_players WHERE match_id = ? AND slot = 2", win))
                 .containsEntry("result", "LOSE").containsEntry("score", 30100).containsEntry("attack_sent", 21);
 
-        long lose = data(start(token, "{\"mode\":\"AI\",\"aiDifficulty\":\"EASY\"}")).get("matchId").asLong();
+        long lose = startAi();
         result(token, lose, aiResult("LOSE"));
         assertThat(jdbc.queryForObject("SELECT winner_user_id FROM matches WHERE id = ?", Long.class, lose)).isNull();
         assertThat(jdbc.queryForMap("SELECT ai_wins, ai_losses, solo_games FROM user_stats WHERE user_id = ?", userId))
@@ -207,8 +239,18 @@ class MatchApiTest {
         expectError(result(token, old, SOLO_RESULT), 409, "MATCH_ALREADY_FINISHED");
     }
 
+    /** 시작한 뒤 200초 동안 플레이한 것처럼 시작 시각을 당긴다(상한 ⑤: 플레이 시간 184초 ≤ 서버 경과 + 2초) */
     private long startSolo() throws Exception {
-        return data(start(token, "{\"mode\":\"SOLO\"}")).get("matchId").asLong();
+        return played(data(start(token, "{\"mode\":\"SOLO\"}")).get("matchId").asLong());
+    }
+
+    private long startAi() throws Exception {
+        return played(data(start(token, "{\"mode\":\"AI\",\"aiDifficulty\":\"EASY\"}")).get("matchId").asLong());
+    }
+
+    private long played(long matchId) {
+        jdbc.update("UPDATE matches SET started_at = ? WHERE id = ?", Timestamp.from(Instant.now().minusSeconds(200)), matchId);
+        return matchId;
     }
 
     private MockHttpServletResponse start(String accessToken, String body) throws Exception {

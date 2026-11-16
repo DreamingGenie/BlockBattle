@@ -10,8 +10,9 @@ import org.junit.jupiter.api.Test;
  */
 class ResultLimitsTest {
 
+    /** ①~④·⑥ 시험용: 서버 경과 시간은 플레이 시간보다 넉넉하게 둔다 */
     static boolean check(long score, long lines, long level, long pieces, long received, long combo, long duration) {
-        return ResultLimits.withinLimits(score, lines, level, pieces, received, combo, duration);
+        return ResultLimits.withinLimits(score, lines, level, pieces, received, combo, duration, duration + 60_000);
     }
 
     @Test
@@ -44,5 +45,25 @@ class ResultLimitsTest {
         assertThat(check(0, 0, 1, 1_840, 0, 0, 184_000)).isTrue();
         assertThat(check(0, 0, 1, 1_841, 0, 0, 184_000)).isFalse();
         assertThat(check(0, 0, 1, 1, 0, 0, 99)).isFalse();
+    }
+
+    /** ⑤ 깨지면: 시작 직후에 긴 플레이 시간을 신고해 ③을 우회하는 위조가 다시 랭킹에 들어간다(보안 점검 H-1) */
+    @Test
+    void 플레이_시간은_서버_경과_시간_더하기_2초까지() {
+        assertThat(ResultLimits.withinLimits(45_200, 62, 7, 171, 0, 5, 184_000, 182_000)).isTrue();
+        assertThat(ResultLimits.withinLimits(45_200, 62, 7, 171, 0, 5, 184_001, 182_000)).isFalse();
+    }
+
+    /** ⑥ 깨지면: 최대 콤보를 부풀려 ④ 점수 상한을 무한히 키울 수 있다(보안 점검 H-1) */
+    @Test
+    void 최대_콤보는_놓은_블록_수까지() {
+        assertThat(check(0, 0, 1, 171, 0, 171, 184_000)).isTrue();
+        assertThat(check(0, 0, 1, 171, 0, 172, 184_000)).isFalse();
+    }
+
+    /** 보안 점검 보고서 H-1의 위조 예시: 이전에는 ④ 상한이 약 10¹⁰이 되어 통과했다 */
+    @Test
+    void 보고서의_위조_예시는_상한을_넘는다() {
+        assertThat(ResultLimits.withinLimits(2_147_483_647L, 4, 1, 10, 0, 50_000_000, 1_000, 1_000)).isFalse();
     }
 }

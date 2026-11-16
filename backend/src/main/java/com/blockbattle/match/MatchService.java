@@ -70,10 +70,11 @@ public class MatchService {
         validate(input, aiMode);
         Stats p = input.player();
         int received = aiMode ? p.attackReceived() : 0;
-        boolean ranked = ResultLimits.withinLimits(p.score(), p.linesCleared(), p.level(), p.piecesPlaced(), received,
-                p.maxCombo(), input.durationMs());
-
         Instant now = clock.instant();
+        long serverElapsedMs = Duration.between(match.startedAt(), now).toMillis();
+        boolean ranked = ResultLimits.withinLimits(p.score(), p.linesCleared(), p.level(), p.piecesPlaced(), received,
+                p.maxCombo(), input.durationMs(), serverElapsedMs);
+
         boolean win = "WIN".equals(input.result());
         matches.finish(matchId, now, input.durationMs(), ranked, aiMode && win ? userId : null);
         matches.updatePlayer(matchId, 1, aiMode ? input.result() : "NONE", toRow(p));

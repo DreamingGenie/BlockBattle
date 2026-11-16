@@ -108,7 +108,11 @@ class MeApiTest {
     }
 
     private long start(String token, String body) throws Exception {
-        return json.readTree(send(token, "/api/v1/matches", body).getContentAsString()).at("/data/matchId").asLong();
+        long matchId = json.readTree(send(token, "/api/v1/matches", body).getContentAsString()).at("/data/matchId").asLong();
+        // 184초 플레이를 실제로 한 것처럼 시작 시각을 당긴다(T-30 상한 ⑤: 플레이 시간 ≤ 서버 경과 + 2초)
+        jdbc.update("UPDATE matches SET started_at = ? WHERE id = ?",
+                java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(200)), matchId);
+        return matchId;
     }
 
     private MockHttpServletResponse send(String token, String url, String body) throws Exception {

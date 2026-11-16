@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class MatchRepository {
 
-    public record MatchRow(long id, String mode, String status, long ownerUserId) {
+    public record MatchRow(long id, String mode, String status, long ownerUserId, Instant startedAt) {
     }
 
     public record PlayerStats(int score, int linesCleared, int level, int piecesPlaced, int attackSent, int attackReceived,
@@ -70,10 +70,12 @@ public class MatchRepository {
     /** 경기 행을 잠그고 1번 자리(사용자) 주인을 함께 읽는다 */
     public Optional<MatchRow> findForUpdate(long matchId) {
         return jdbc.query("""
-                SELECT m.id, m.mode, m.status, p.user_id
+                SELECT m.id, m.mode, m.status, p.user_id, m.started_at
                 FROM matches m LEFT JOIN match_players p ON p.match_id = m.id AND p.slot = 1
                 WHERE m.id = ? FOR UPDATE""",
-                (rs, i) -> new MatchRow(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getLong(4)), matchId)
+                // insertMatch가 Timestamp.from(Instant)으로 쓴 값을 getTimestamp로 되읽는다(LocalDateTime 변환은 T-23의 9시간 오류 원인)
+                (rs, i) -> new MatchRow(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getLong(4),
+                        rs.getTimestamp(5).toInstant()), matchId)
                 .stream().findFirst();
     }
 
