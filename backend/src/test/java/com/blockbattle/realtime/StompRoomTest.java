@@ -124,6 +124,61 @@ class StompRoomTest {
         assertThat(outsiderTopic.poll(500, TimeUnit.MILLISECONDS)).isNull();
     }
 
+    /**
+     * T-31(보안 점검 H-2) 허용 목록. 깨지면: 방 코드만 알면 방 구독자에게 가짜 메시지를 방송하거나,
+     * 남의 개인 큐로 가짜 RESYNC를 넣거나, 패턴 구독으로 남의 개인 큐를 엿들을 수 있다.
+     */
+    @Test
+    void 허용_목록_밖의_발행과_구독은_무시하고_NOT_PARTICIPANT를_보낸다() throws Exception {
+        Player host = guest("오션");
+        String code = createRoom(host);
+        Player outsider = guest("손님");
+
+        StompSession hostSession = connect(host);
+        BlockingQueue<JsonNode> hostTopic = subscribe(hostSession, "/topic/rooms/" + code);
+        BlockingQueue<JsonNode> hostState = subscribe(hostSession, "/user/queue/state");
+        BlockingQueue<JsonNode> hostErrors = subscribe(hostSession, "/user/queue/errors");
+        StompSession outsiderSession = connect(outsider);
+        BlockingQueue<JsonNode> outsiderErrors = subscribe(outsiderSession, "/user/queue/errors");
+        Thread.sleep(300);
+        hostState.clear(); // 구독 때 서버가 보낸 상태 메시지가 있으면 비운다
+
+        // 가짜 방송: 방 topic으로 직접 발행
+        String topic = "/topic/rooms/" + code;
+        outsiderSession.send(topic, Map.of("type", "GAME_OVER", "roomCode", code));
+        assertThat(rejected(outsiderErrors)).isEqualTo(topic);
+        assertThat(hostTopic.poll(500, TimeUnit.MILLISECONDS)).as("가짜 방송은 방 구독자에게 가지 않는다").isNull();
+
+        // 남의 개인 큐로 발행
+        String hostQueue = "/user/" + host.userId() + "/queue/state";
+        outsiderSession.send(hostQueue, Map.of("type", "RESYNC"));
+        assertThat(rejected(outsiderErrors)).isEqualTo(hostQueue);
+        assertThat(hostState.poll(500, TimeUnit.MILLISECONDS)).as("남의 개인 큐에 넣을 수 없다").isNull();
+
+        // 패턴 구독과 남의 개인 큐 구독
+        BlockingQueue<JsonNode> sniff = subscribe(outsiderSession, "/queue/**");
+        assertThat(rejected(outsiderErrors)).isEqualTo("/queue/**");
+        subscribe(outsiderSession, hostQueue);
+        assertThat(rejected(outsiderErrors)).isEqualTo(hostQueue);
+        assertThat(outsiderSession.isConnected()).as("연결은 끊지 않는다").isTrue();
+
+        // 참가자라도 정해진 동작이 아니면 거부
+        hostSession.send("/app/rooms/" + code + "/admin", Map.of());
+        assertThat(rejected(hostErrors)).isEqualTo("/app/rooms/" + code + "/admin");
+
+        // 참가자의 허용 목적지는 그대로 동작하고, 거부된 구독으로는 아무것도 새지 않는다
+        hostSession.send("/app/rooms/" + code + "/ready", Map.of("ready", true));
+        assertThat(nextOfType(hostTopic, "READY_CHANGED").at("/payload/userId").asLong()).isEqualTo(host.userId());
+        assertThat(sniff.poll(500, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    private String rejected(BlockingQueue<JsonNode> errors) throws InterruptedException {
+        JsonNode error = errors.poll(5, TimeUnit.SECONDS);
+        assertThat(error).as("NOT_PARTICIPANT 개인 오류").isNotNull();
+        assertThat(error.get("code").asText()).isEqualTo("NOT_PARTICIPANT");
+        return error.at("/payload/destination").asText();
+    }
+
     @Test
     void 둘_다_준비하면_경기_행을_만들고_COUNTDOWN의_startsAt은_전송_시각_더하기_3초다() throws Exception {
         Player host = guest("오션");
