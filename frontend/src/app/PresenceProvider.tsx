@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { HEARTBEAT_MS, type PresenceCounts } from './presence';
 import { useSession } from './session';
+import { setGameInProgress } from './devtoolsGuard';
 
 interface PresenceValue {
   counts: PresenceCounts | null;
@@ -44,6 +45,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const timer = window.setInterval(beat, HEARTBEAT_MS);
     return () => window.clearInterval(timer);
   }, [loggedIn, beat]);
+
+  // 개발자 도구 안내 화면을 경기 중에는 미룬다(T-50). 로그인과 상관없이 경기 화면 기준이다
+  useEffect(() => setGameInProgress(playing), [playing]);
 
   // 로그인 직후와 경기 시작·종료 때 바로 보낸다
   useEffect(() => {
