@@ -140,6 +140,11 @@ export class ApiClient {
     }
   }
 
+  /** 서버에는 알리지 않고 메모리의 Access 토큰만 버린다. Refresh 쿠키는 남아 '이 기기에서 이어 하기'에 쓴다 */
+  forgetAccess(): void {
+    this.accessToken = null;
+  }
+
   private loseSession(): void {
     this.accessToken = null;
     this.onSessionLost();

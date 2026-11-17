@@ -1782,3 +1782,144 @@ th {
     text-align: center;
   }
 }
+
+/* ── 이 기기에서 이어 하기 ── */
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-card h1 {
+  margin: 0;
+}
+
+.login-card > p {
+  margin: 0;
+}
+
+.saved-account {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 12px;
+}
+
+.saved-account .meta {
+  margin: 0;
+}
+
+button.saved-continue {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--accent-line);
+  border-radius: 10px;
+  font-weight: 400;
+  transition: border-color 0.12s ease, transform 0.08s ease;
+}
+
+button.saved-continue:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button.saved-continue:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.saved-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.saved-name b {
+  font-weight: 800;
+}
+
+.saved-name .num {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.saved-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.saved-account button.link {
+  align-self: flex-end;
+  padding: 0;
+}
+
+.logout-dialog {
+  width: min(460px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: pop-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.logout-dialog h2,
+.logout-dialog > p {
+  margin: 0;
+}
+
+button.logout-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  text-align: left;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-weight: 400;
+  transition: border-color 0.12s ease;
+}
+
+button.logout-option > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+button.logout-option .meta {
+  display: block;
+}
+
+button.logout-option:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button.logout-option.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+}
+
+.logout-option-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 9px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.logout-option.danger .logout-option-icon {
+  color: var(--danger);
+  background: var(--danger-soft);
+}

@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon, type IconName } from '../app/Icon';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
+import { LogoutDialog } from './LogoutDialog';
 
 /** 승률(%) — 경기가 없으면 null */
 function winRate(wins: number, losses: number): number | null {
@@ -23,6 +24,7 @@ interface PlayMode {
 /** 로비: 게임 모드 세 개를 크게, 기록·랭킹·키 설정을 작게. 모드마다 내 전적 요약(REQ-003, API-006) */
 export function LobbyScreen() {
   const { me, logout, reloadMe } = useSession();
+  const [askLogout, setAskLogout] = useState(false);
 
   useEffect(() => {
     reloadMe().catch(() => {});
@@ -91,7 +93,7 @@ export function LobbyScreen() {
             <span className="tag num">#{me.tag}</span>
           </span>
           <span className={`badge${me.userType === 'MEMBER' ? ' ok' : ''}`}>{me.userType === 'MEMBER' ? '회원' : '게스트'}</span>
-          <button className="ghost" onClick={() => logout()}>
+          <button className="ghost" onClick={() => setAskLogout(true)}>
             <Icon name="logout" />
             로그아웃
           </button>
@@ -142,6 +144,14 @@ export function LobbyScreen() {
           </li>
         ))}
       </ul>
+      {askLogout && (
+        <LogoutDialog
+          name={`${me.nickname}#${me.tag}`}
+          guest={me.userType === 'GUEST'}
+          onPick={(mode) => logout(mode)}
+          onClose={() => setAskLogout(false)}
+        />
+      )}
     </main>
   );
 }
