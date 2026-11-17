@@ -1,3 +1,4 @@
+import { addListener, launch, removeListener, stop } from 'devtools-detector';
 import { loadBindings } from '../game/keybindings';
 
 /**
@@ -36,21 +37,31 @@ const NOTICE_STYLE =
   'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;color:#fff;z-index:999999;' +
   'display:flex;align-items:center;justify-content:center;text-align:center;font-size:24px;';
 
-function showNotice(doc: Document): void {
+/** reason: 무엇이 걸렸는지(단축키면 'shortcut', 열림 감지면 검사기 이름). 오탐을 조사할 때 요소 속성으로 본다 */
+function showNotice(doc: Document, reason: string): void {
   const notice = doc.createElement('div');
   notice.setAttribute('style', NOTICE_STYLE);
+  notice.dataset.reason = reason;
   notice.textContent = '개발자 도구 사용이 금지되어 있습니다.';
   doc.body.replaceChildren(notice);
 }
 
-/** 단축키·우클릭 메뉴를 가로챈다. 해제 함수를 돌려준다. 한 번 안내 화면이 뜨면 새로고침해야 돌아온다 */
+/**
+ * 단축키·우클릭 메뉴를 가로채고, 브라우저 메뉴로 연 개발자 도구도 devtools-detector로 감지한다.
+ * 해제 함수를 돌려준다. 한 번 안내 화면이 뜨면 새로고침해야 돌아온다
+ */
 export function installDevtoolsGuard(win: Window = window): () => void {
+  const onOpen = (isOpen: boolean, detail?: { checkerName: string }) => {
+    if (isOpen) showNotice(win.document, detail?.checkerName ?? 'detector');
+  };
+  addListener(onOpen);
+  launch();
   const onKeyDown = (e: KeyboardEvent) => {
     const gameKeys = new Set(Object.values(loadBindings()).flat());
     const action = classifyShortcut(e, gameKeys);
     if (!action) return;
     e.preventDefault(); // 전파는 막지 않는다: swallow일 때 게임이 그 키를 받아야 한다
-    if (action === 'block') showNotice(win.document);
+    if (action === 'block') showNotice(win.document, 'shortcut');
   };
   const onContextMenu = (e: MouseEvent) => e.preventDefault();
   win.addEventListener('keydown', onKeyDown, true);
@@ -58,5 +69,7 @@ export function installDevtoolsGuard(win: Window = window): () => void {
   return () => {
     win.removeEventListener('keydown', onKeyDown, true);
     win.removeEventListener('contextmenu', onContextMenu, true);
+    removeListener(onOpen);
+    stop();
   };
 }
