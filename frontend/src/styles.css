@@ -164,64 +164,9 @@ th {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-/* 로비 모드 목록: 한 줄에 이름 · 설명 · 내 전적 */
 .wordmark {
   font-size: 18px;
   letter-spacing: -0.01em;
-}
-
-.modes {
-  list-style: none;
-  margin: 24px 0 8px;
-  padding: 0;
-  border-top: 1px solid var(--line);
-}
-
-.modes li {
-  border-bottom: 1px solid var(--line);
-}
-
-button.mode {
-  display: grid;
-  grid-template-columns: 120px 1fr auto;
-  gap: 16px;
-  align-items: baseline;
-  width: 100%;
-  padding: 18px 8px;
-  background: none;
-  color: var(--text);
-  border: 0;
-  border-radius: 0;
-  text-align: left;
-  font-weight: 400;
-}
-
-button.mode:hover {
-  background: var(--panel);
-}
-
-button.mode:hover .mode-name {
-  color: var(--accent);
-}
-
-.mode-name {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.mode-stat {
-  color: var(--text);
-}
-
-@media (max-width: 640px) {
-  button.mode {
-    grid-template-columns: 1fr auto;
-  }
-
-  .mode-desc {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
 }
 
 .num {
@@ -695,44 +640,6 @@ tr.clickable:hover td {
   margin: 0;
   font-size: 30px;
   font-weight: 800;
-}
-
-/* ── 로비 모드 타일 ── */
-.modes {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 14px;
-  border-top: 0;
-}
-
-.modes li {
-  border-bottom: 0;
-}
-
-button.mode {
-  grid-template-columns: 1fr auto;
-  height: 100%;
-  padding: 22px 20px;
-  background: linear-gradient(160deg, var(--panel-2), var(--panel));
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
-}
-
-button.mode .mode-desc {
-  grid-column: 1 / -1;
-  grid-row: 2;
-}
-
-button.mode:hover {
-  background: linear-gradient(160deg, #2a2b30, var(--panel));
-  border-color: var(--accent);
-  transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(240, 180, 41, 0.25);
-}
-
-button.mode:active {
-  transform: translateY(0) scale(0.98);
 }
 
 /* ── vs AI 난이도 선택 ── */
@@ -1499,6 +1406,291 @@ canvas.board {
     padding: 4px 10px;
     font-size: 13px;
   }
+}
+
+/* ── 로비 ── */
+.lobby {
+  position: relative;
+}
+
+.lobby::before {
+  /* 상단 은은한 금빛 조명 */
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 320px;
+  background: radial-gradient(ellipse 60% 100% at 50% 0%, rgba(240, 180, 41, 0.09), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  display: grid;
+  grid-template-columns: repeat(3, 9px);
+  grid-template-rows: repeat(2, 9px);
+  gap: 2px;
+}
+
+.brand-mark i {
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* T 블록 모양 */
+.brand-mark i:nth-child(1) { grid-column: 1; grid-row: 1; }
+.brand-mark i:nth-child(2) { grid-column: 2; grid-row: 1; }
+.brand-mark i:nth-child(3) { grid-column: 3; grid-row: 1; }
+.brand-mark i:nth-child(4) { grid-column: 2; grid-row: 2; }
+
+.lobby .wordmark {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.user-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff5, transparent 50%), var(--accent);
+  color: var(--accent-ink);
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.user-name b {
+  font-weight: 800;
+}
+
+.user-name .tag {
+  margin-left: 1px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.section-label {
+  margin: 26px 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-2);
+}
+
+.play-modes,
+.more-modes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 860px) {
+  .play-modes,
+  .more-modes {
+    grid-template-columns: 1fr;
+  }
+}
+
+button.play-card {
+  --tone: var(--accent);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 22px 22px 18px;
+  text-align: left;
+  color: var(--text);
+  font-weight: 400;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--tone) 16%, transparent), transparent 55%),
+    linear-gradient(170deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--tone);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+button.play-card.tone-cyan { --tone: var(--tone-cyan); }
+button.play-card.tone-pink { --tone: var(--tone-pink); }
+
+button.play-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--tone) 70%, var(--line));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px color-mix(in srgb, var(--tone) 30%, transparent),
+    0 0 40px color-mix(in srgb, var(--tone) 18%, transparent);
+}
+
+button.play-card:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+.play-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 14%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent);
+}
+
+.play-name {
+  font-size: 21px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.play-desc {
+  min-height: 3em;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.play-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.play-stat-main {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--tone);
+}
+
+.meter {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tone);
+}
+
+.play-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tone);
+}
+
+button.play-card:hover .play-go .icon {
+  transform: translateX(3px);
+}
+
+.play-go .icon {
+  transition: transform 0.14s ease;
+}
+
+button.more-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  height: 100%;
+  padding: 14px 16px;
+  text-align: left;
+  color: var(--text);
+  font-weight: 400;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+button.more-card:hover {
+  background: var(--panel-2);
+  border-color: var(--accent-line);
+}
+
+.more-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.more-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.more-name {
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.more-arrow {
+  color: var(--muted);
+  transition: transform 0.12s ease, color 0.12s ease;
+}
+
+button.more-card:hover .more-arrow {
+  color: var(--accent);
+  transform: translateX(3px);
+}
+
+@media (max-width: 640px) {
+  .lobby .topbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .lobby .topbar > :last-child:not(:first-child) {
+    grid-column: 1;
+    justify-self: start;
+  }
+}
+
+.podium-name .badge {
+  margin-left: 6px;
+  vertical-align: 2px;
 }
 
 /* 기록 목록·경기 상세 */
