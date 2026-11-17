@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
+import { usePlaying } from '../app/PresenceProvider';
 import { AiController, requestServerMove, type Difficulty } from '../ai';
 import { difficultyLabel } from '../ai/types';
 import { Game } from '../engine';
@@ -35,6 +36,7 @@ const DIFFICULTIES: { value: Difficulty; stars: number }[] = [
 export function AiScreen() {
   const { api, reloadMe } = useSession();
   const [phase, setPhase] = useState<Phase>('choose');
+  usePlaying(phase === 'playing');
   const [difficulty, setDifficulty] = useState<Difficulty>('NORMAL');
   const [error, setError] = useState<string | null>(null);
   const [round, setRound] = useState(0);

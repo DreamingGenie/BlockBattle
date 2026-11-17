@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
+import { usePlaying } from '../app/PresenceProvider';
 import { Game } from '../engine';
 import { BoardCanvas, type BoardCanvasHandle } from '../game/BoardCanvas';
 import { applyActions, inputSound, useKeyboard } from '../game/controls';
@@ -36,6 +37,7 @@ type Phase = 'starting' | 'playing' | 'paused' | 'saving' | 'result' | 'error';
 export function SoloScreen() {
   const { api, me, reloadMe } = useSession();
   const [phase, setPhase] = useState<Phase>('starting');
+  usePlaying(phase === 'playing' || phase === 'paused');
   const [error, setError] = useState<string | null>(null);
   const [hud, setHud] = useState({ score: 0, lines: 0, level: 1 });
   const [saved, setSaved] = useState<Saved | null>(null);

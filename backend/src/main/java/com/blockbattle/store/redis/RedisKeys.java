@@ -22,6 +22,12 @@ public final class RedisKeys {
     public static final String RANKING_SOLO = "ranking:solo";
     public static final String RANKING_SOLO_SEQ = "ranking:solo:seq";
 
+    /** presence:online·presence:playing — Sorted Set(member = userId, score = 마지막 heartbeat 시각 ms). 키 TTL 없음(T-49) */
+    public static final String PRESENCE_ONLINE = "presence:online";
+    public static final String PRESENCE_PLAYING = "presence:playing";
+    /** 마지막 heartbeat가 이보다 오래되면 접속·플레이 수에서 뺀다(클라이언트는 20초마다 보낸다) */
+    public static final Duration PRESENCE_WINDOW = Duration.ofSeconds(70);
+
     private RedisKeys() {
     }
 

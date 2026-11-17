@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon, type IconName } from '../app/Icon';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
+import { LiveCount } from '../app/LiveCount';
 import { LogoutDialog } from './LogoutDialog';
 
 /** 승률(%) — 경기가 없으면 null */
@@ -84,6 +85,7 @@ export function LobbyScreen() {
           </span>
           <strong className="wordmark">블록 배틀</strong>
         </span>
+        <LiveCount />
         <span className="user-box">
           <span className="avatar" aria-hidden="true">
             {me.nickname.slice(0, 1)}

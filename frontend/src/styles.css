@@ -1923,3 +1923,88 @@ button.logout-option.danger:hover:not(:disabled) {
   color: var(--danger);
   background: var(--danger-soft);
 }
+
+/* ── 지금 플레이 중 인원(T-49) ──
+   on = 초록 점이 퍼지며 깜빡임, idle = 0명(회색 점, 움직임 없음), wait = 첫 응답 전·연결 실패(금색 점 깜빡임, 숫자 숨김) */
+.live-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.live-count.on {
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  background: linear-gradient(90deg, var(--ok-soft), var(--panel-2) 70%);
+}
+
+.live-dot {
+  position: relative;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.live-count.on .live-dot {
+  background: var(--ok);
+}
+
+.live-count.on .live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--ok);
+  animation: live-ping 1.6s ease-out infinite;
+}
+
+.live-count.wait .live-dot {
+  background: var(--accent);
+  animation: blink 1s ease-in-out infinite;
+}
+
+.live-main b {
+  margin-right: 1px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.live-count.on .live-main {
+  color: var(--text);
+}
+
+.live-sub {
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@keyframes live-ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  80%, 100% { transform: scale(2.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-count.on .live-dot::after,
+  .live-count.wait .live-dot {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .lobby .topbar > .live-count {
+    justify-self: start;
+  }
+}

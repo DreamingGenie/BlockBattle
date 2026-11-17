@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, errorMessage } from '../api/client';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
+import { usePlaying } from '../app/PresenceProvider';
 import { useRoomConnection, type PersonalError, type RoomView } from '../realtime/room';
 import type { WsMessage } from '../realtime/stomp';
 import type { GameOverPayload, ResyncPayload } from '../game/friend';
@@ -33,6 +34,7 @@ export function RoomScreen({ code }: { code: string }) {
   const [countdown, setCountdown] = useState<Countdown | null>(null);
   const [now, setNow] = useState(Date.now());
   const participant = !!room && !!me && room.players.some((p) => p.userId === me.userId);
+  usePlaying(participant && !closed && !!room && (room.status !== 'WAITING' || countdown !== null));
   const match = useRef<MatchPanelHandle>(null);
   const [names, setNames] = useState<Record<number, string>>({});
   useEffect(() => {

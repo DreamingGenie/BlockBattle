@@ -13,6 +13,7 @@ import { MobileNoticeScreen } from '../screens/MobileNoticeScreen';
 import { currentDevice, isMobileBrowser } from './device';
 import { navigate, useRoute, type Route } from './router';
 import { SessionProvider, useSession } from './session';
+import { PresenceProvider } from './PresenceProvider';
 
 /** 화면 이름 → 화면. 게임·기록 화면은 T-19~T-22에서 채운다 */
 const screens: Partial<Record<Route['name'], (route: Route) => ReactElement>> = {
@@ -46,7 +47,9 @@ export function App() {
   if (isMobileBrowser(currentDevice())) return <MobileNoticeScreen />;
   return (
     <SessionProvider>
-      <Routed />
+      <PresenceProvider>
+        <Routed />
+      </PresenceProvider>
     </SessionProvider>
   );
 }
