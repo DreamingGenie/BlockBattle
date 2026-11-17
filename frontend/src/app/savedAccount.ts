@@ -7,7 +7,6 @@
 export interface SavedAccount {
   nickname: string;
   tag: string;
-  userType: 'GUEST' | 'MEMBER';
 }
 
 const KEY = 'bb.savedAccount';
@@ -28,7 +27,7 @@ export function loadSavedAccount(store: Store | null = defaultStore()): SavedAcc
     if (!raw) return null;
     const v = JSON.parse(raw) as Partial<SavedAccount>;
     if (typeof v.nickname !== 'string' || typeof v.tag !== 'string' || !v.nickname || !v.tag) return null;
-    return { nickname: v.nickname, tag: v.tag, userType: v.userType === 'MEMBER' ? 'MEMBER' : 'GUEST' };
+    return { nickname: v.nickname, tag: v.tag };
   } catch {
     return null;
   }
@@ -38,7 +37,8 @@ export function loadSavedAccount(store: Store | null = defaultStore()): SavedAcc
 export function saveSavedAccount(account: SavedAccount, store: Store | null = defaultStore()): boolean {
   try {
     if (!store) return false;
-    store.setItem(KEY, JSON.stringify(account));
+    // REQ-001 v2: 표시용 닉네임·태그 말고는 남기지 않는다
+    store.setItem(KEY, JSON.stringify({ nickname: account.nickname, tag: account.tag }));
     return true;
   } catch {
     return false;

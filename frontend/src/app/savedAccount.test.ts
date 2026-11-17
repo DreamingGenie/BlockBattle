@@ -13,8 +13,9 @@ function memoryStore() {
 describe('savedAccount', () => {
   it('저장한 이름표를 그대로 읽고, 지우면 없다', () => {
     const s = memoryStore();
-    expect(saveSavedAccount({ nickname: '지니', tag: '9269', userType: 'GUEST' }, s)).toBe(true);
-    expect(loadSavedAccount(s)).toEqual({ nickname: '지니', tag: '9269', userType: 'GUEST' });
+    expect(saveSavedAccount({ nickname: '지니', tag: '9269' }, s)).toBe(true);
+    expect(loadSavedAccount(s)).toEqual({ nickname: '지니', tag: '9269' });
+    expect(JSON.parse(s.m.get('bb.savedAccount')!)).toEqual({ nickname: '지니', tag: '9269' }); // REQ-001 v2: 닉네임·태그만
     clearSavedAccount(s);
     expect(loadSavedAccount(s)).toBeNull();
   });
@@ -29,7 +30,7 @@ describe('savedAccount', () => {
 
   it('저장소를 못 쓰면 저장 실패를 알린다', () => {
     const broken = { getItem: () => null, setItem: () => { throw new Error('QuotaExceeded'); }, removeItem: () => {} };
-    expect(saveSavedAccount({ nickname: '지니', tag: '9269', userType: 'GUEST' }, broken)).toBe(false);
-    expect(saveSavedAccount({ nickname: '지니', tag: '9269', userType: 'GUEST' }, null)).toBe(false);
+    expect(saveSavedAccount({ nickname: '지니', tag: '9269' }, broken)).toBe(false);
+    expect(saveSavedAccount({ nickname: '지니', tag: '9269' }, null)).toBe(false);
   });
 });

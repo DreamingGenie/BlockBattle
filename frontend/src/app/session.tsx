@@ -79,7 +79,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(
     async (mode: LogoutMode) => {
       const current = me;
-      if (mode === 'keep' && current && saveSavedAccount({ nickname: current.nickname, tag: current.tag, userType: current.userType })) {
+      if (mode === 'keep' && current && saveSavedAccount({ nickname: current.nickname, tag: current.tag })) {
         api.forgetAccess();
         setSaved(loadSavedAccount());
         setMe(null);
