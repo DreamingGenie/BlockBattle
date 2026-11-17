@@ -186,7 +186,7 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
 
   return (
     <section className="stack match-panel">
-      <p className="muted small round-line">
+      <p className="meta round-line">
         {round.seriesNo > 0
           ? `시리즈 ${round.seriesNo} · ${round.roundNo}라운드${round.attemptNo > 1 ? ` (재시도 ${round.attemptNo})` : ''}`
           : '경기 이어 하는 중'}
@@ -195,15 +195,17 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
       </p>
       <div className="play">
         <div className="board-wrap">
-          <p className="muted">
-            나 · {scores.me.toLocaleString()}점
+          <p className="board-label">
+            <span>나</span>
+            <b className="num">{scores.me.toLocaleString()}점</b>
           </p>
           <BoardCanvas ref={myBoard} label="내 보드" sound />
           {startIn > 0 && !over && <div className="overlay"><h1>{startIn}</h1></div>}
         </div>
         <div className="board-wrap">
-          <p className="muted">
-            {opponentId ? names[opponentId] : '상대'} · {scores.opp.toLocaleString()}점
+          <p className="board-label">
+            <span>{opponentId ? names[opponentId] : '상대'}</span>
+            <b className="num">{scores.opp.toLocaleString()}점</b>
           </p>
           <BoardCanvas ref={oppBoard} cell={20} sides={false} label="상대 보드" />
         </div>

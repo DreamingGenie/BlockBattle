@@ -211,8 +211,16 @@ export function SoloScreen() {
               </tbody>
             </table>
           )}
-          <p className="muted">
-            내 순위: {ranking?.me ? `${ranking.me.rank}위 · ${ranking.me.score.toLocaleString()}점` : '아직 기록 없음'}
+          <p className={`chip${ranking?.me ? ' accent' : ''}`}>
+            {ranking?.me ? (
+              <>
+                내 순위 <b className="num">{ranking.me.rank}위</b>
+                <span className="chip-sep" />
+                <span className="num">{ranking.me.score.toLocaleString()}점</span>
+              </>
+            ) : (
+              '아직 내 기록 없음'
+            )}
           </p>
           <div className="row">
             <button onClick={() => setRound((r) => r + 1)}>다시 하기</button>

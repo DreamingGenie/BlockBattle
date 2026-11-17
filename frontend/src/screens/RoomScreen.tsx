@@ -153,7 +153,7 @@ export function RoomScreen({ code }: { code: string }) {
         <strong>친구 대전 · {code}</strong>
         <span className="row">
           {participant && !closed && <FxControls />}
-          <span className="muted small">{participant && !closed ? (connection.connected ? '연결됨' : '연결 중…') : ''}</span>
+          {participant && !closed && <span className={`status ${connection.connected ? 'on' : 'wait'}`}>{connection.connected ? '연결됨' : '연결 중…'}</span>}
         </span>
       </header>
 
@@ -173,14 +173,16 @@ export function RoomScreen({ code }: { code: string }) {
       {room && !participant && !closed && (
         <section className="card stack" style={{ marginTop: 16, maxWidth: 480 }}>
           <h2>방 {room.roomCode}</h2>
-          <p className="muted">
-            {room.roundCount === 3 ? '3판 2선승' : '1판'} · 참가자 {room.players.length}/2 · {room.status === 'WAITING' ? '대기 중' : '경기 중'}
-          </p>
+          <div className="row">
+            <span className="badge accent">{room.roundCount === 3 ? '3판 2선승' : '1판'}</span>
+            <span className="badge">참가자 {room.players.length}/2</span>
+            <span className={`badge${room.status === 'WAITING' ? ' ok' : ''}`}>{room.status === 'WAITING' ? '대기 중' : '경기 중'}</span>
+          </div>
           <ul>
             {room.players.map((p) => (
               <li key={p.userId}>
                 {p.nickname}#{p.tag}
-                {p.userId === room.hostUserId ? ' (방장)' : ''}
+                {p.userId === room.hostUserId && <span className="badge accent">방장</span>}
               </li>
             ))}
           </ul>
@@ -212,11 +214,11 @@ export function RoomScreen({ code }: { code: string }) {
                 <strong>
                   {p.nickname}#{p.tag}
                 </strong>
-                {p.userId === room.hostUserId && <span className="badge">방장</span>}
-                <span className={p.ready ? 'ok' : 'muted'}>{p.ready ? '준비 완료' : '대기'}</span>
+                {p.userId === room.hostUserId && <span className="badge accent">방장</span>}
+                <span className={`badge${p.ready ? ' ok' : ''}`}>{p.ready ? '준비 완료' : '대기'}</span>
               </div>
             ))}
-            {room.players.length < 2 && <p className="muted">상대를 기다리는 중입니다.</p>}
+            {room.players.length < 2 && <p className="status wait">상대를 기다리는 중입니다.</p>}
             {room.status === 'WAITING' && (
               <button onClick={() => connection.send(`/app/rooms/${code}/ready`, { ready: !mine?.ready })} disabled={!connection.connected}>
                 {mine?.ready ? '준비 취소' : '준비'}
@@ -226,8 +228,10 @@ export function RoomScreen({ code }: { code: string }) {
           </div>
           <div className="card stack">
             <h2>초대</h2>
-            <p className="muted">{room.roundCount === 3 ? '3판 2선승' : '1판'}</p>
-            <code>{inviteUrl}</code>
+            <span className="badge accent" style={{ alignSelf: 'flex-start' }}>
+              {room.roundCount === 3 ? '3판 2선승' : '1판'}
+            </span>
+            <code className="address">{inviteUrl}</code>
             <div className="row">
               <button className="secondary" onClick={() => navigator.clipboard?.writeText(inviteUrl)}>
                 초대 링크 복사

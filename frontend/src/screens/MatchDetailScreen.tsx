@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
-import { END_TEXT, MODE_TEXT, RESULT_TEXT, formatDuration, formatTime } from './RecordsScreen';
+import { END_TEXT, MODE_TEXT, ResultBadge, formatDuration, formatTime } from './RecordsScreen';
+import { Icon } from '../app/Icon';
 
 /** GET /matches/{matchId} 응답(T-15 구현 그대로). APM은 서버가 조회 때 계산한 값(POL-012) */
 interface MatchDetail {
@@ -61,16 +62,28 @@ export function MatchDetailScreen({ id }: { id: string }) {
       {error && <p className="error">{error}</p>}
       {data && (
         <section className="card stack" style={{ marginTop: 12 }}>
-          <p>
-            {MODE_TEXT[data.mode]}
-            {data.aiDifficulty ? ` · ${difficultyLabel(data.aiDifficulty)}` : ''}
-            {data.room ? ` · 방 ${data.room.roomCode} · 시리즈 ${data.room.seriesNo} · ${data.room.roundNo}라운드${data.room.attemptNo > 1 ? `(재시도 ${data.room.attemptNo})` : ''}` : ''}
-          </p>
-          <p className="muted">
-            {formatTime(data.startedAt)} ~ {formatTime(data.endedAt)} · {formatDuration(data.durationMs)} · {data.status === 'ABORTED' ? '무효 경기' : '종료'} ·{' '}
-            {data.endReason ? END_TEXT[data.endReason] ?? data.endReason : '-'}
-            {data.ranked ? '' : ' · 랭킹 미반영'}
-          </p>
+          <div className="row">
+            <span className="badge accent">{MODE_TEXT[data.mode]}</span>
+            {data.aiDifficulty && <span className="badge">{difficultyLabel(data.aiDifficulty)}</span>}
+            {data.room && (
+              <span className="badge">
+                방 {data.room.roomCode} · 시리즈 {data.room.seriesNo} · {data.room.roundNo}라운드{data.room.attemptNo > 1 ? `(재시도 ${data.room.attemptNo})` : ''}
+              </span>
+            )}
+            {data.status === 'ABORTED' && <span className="badge danger">무효 경기</span>}
+            {!data.ranked && <span className="badge">랭킹 미반영</span>}
+          </div>
+          <div className="row">
+            <span className="meta">
+              <Icon name="calendar" size={14} />
+              {formatTime(data.startedAt)} ~ {formatTime(data.endedAt)}
+            </span>
+            <span className="meta">
+              <Icon name="clock" size={14} />
+              {formatDuration(data.durationMs)}
+            </span>
+            <span className="meta">종료 사유 · {data.endReason ? END_TEXT[data.endReason] ?? data.endReason : '-'}</span>
+          </div>
           <div className="table-wrap">
           <table>
             <thead>
@@ -91,8 +104,10 @@ export function MatchDetailScreen({ id }: { id: string }) {
               {data.players.map((p) => (
                 <tr key={p.slot} className={p.userId === me?.userId ? 'mine' : undefined}>
                   <td>{p.playerType === 'AI' ? `AI${data.aiDifficulty ? ` (${difficultyLabel(data.aiDifficulty)})` : ''}` : `${p.nickname}#${p.tag}`}</td>
-                  <td>{RESULT_TEXT[p.result] ?? p.result}</td>
-                  <td>{p.score.toLocaleString()}</td>
+                  <td>
+                    <ResultBadge result={p.result} />
+                  </td>
+                  <td className="num strong">{p.score.toLocaleString()}</td>
                   <td>{p.linesCleared}</td>
                   <td>{p.level}</td>
                   <td>{p.piecesPlaced}</td>

@@ -4,6 +4,7 @@ import { formatDuration } from '../app/format';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
 import { difficultyLabel } from '../ai/types';
+import { Icon } from '../app/Icon';
 
 /** GET /users/me/matches 응답(T-15 구현 그대로) */
 interface MatchPage {
@@ -45,6 +46,15 @@ export function formatTime(iso: string | null, now: Date = new Date()): string {
   return d.getFullYear() === now.getFullYear() ? day : `${d.getFullYear()}년 ${day}`;
 }
 
+/** 승·패·무효 배지(기록 목록·경기 상세 공용) */
+export function ResultBadge({ result }: { result: string }) {
+  if (result === 'WIN') return <span className="badge ok">승</span>;
+  if (result === 'LOSE') return <span className="badge danger">패</span>;
+  if (result === 'ABORTED') return <span className="badge">무효</span>;
+  if (result === 'NONE') return <span className="meta">-</span>;
+  return <span className="badge">{RESULT_TEXT[result] ?? result}</span>;
+}
+
 /** 최근 경기 목록(FR-REC-01, REQ-015): mode 필터·페이지. 응답을 서버가 준 순서 그대로 보여 준다 */
 export function RecordsScreen() {
   const { api } = useSession();
@@ -75,13 +85,25 @@ export function RecordsScreen() {
           ← 로비
         </button>
         <strong>기록</strong>
-        <span className="muted">{data ? `총 ${data.totalElements}경기` : ''}</span>
+        {data ? (
+          <span className="chip">
+            <Icon name="history" />
+            <span>
+              총 <b className="num">{data.totalElements.toLocaleString()}</b>경기
+            </span>
+          </span>
+        ) : (
+          <span />
+        )}
       </header>
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="records-filter">
+        <div className="rank-tabs" role="tablist">
         {['', 'SOLO', 'AI', 'FRIEND'].map((m) => (
           <button
             key={m || 'ALL'}
-            className={mode === m ? undefined : 'secondary'}
+            role="tab"
+            aria-selected={mode === m}
+            className={`rank-tab${mode === m ? ' active' : ''}`}
             onClick={() => {
               setMode(m);
               setPage(0);
@@ -90,7 +112,8 @@ export function RecordsScreen() {
             {m ? MODE_TEXT[m] : '전체'}
           </button>
         ))}
-        <label className="row muted">
+        </div>
+        <label className="meta">
           페이지당
           <select
             value={size}
@@ -112,7 +135,11 @@ export function RecordsScreen() {
       {data && (
         <section className="card" style={{ marginTop: 12 }}>
           {data.items.length === 0 ? (
-            <p className="muted">아직 끝난 경기가 없습니다.</p>
+            <div className="empty-state">
+              <Icon name="history" size={34} />
+              <p>아직 끝난 경기가 없습니다.</p>
+              <p className="meta">로비에서 한 판 시작해 보세요!</p>
+            </div>
           ) : (
             <div className="table-wrap">
             <table>
@@ -130,8 +157,15 @@ export function RecordsScreen() {
               <tbody>
                 {data.items.map((m) => (
                   <tr key={m.matchId} className="clickable" onClick={() => navigate(`/matches/${m.matchId}`)}>
-                    <td>{formatTime(m.startedAt)}</td>
-                    <td>{MODE_TEXT[m.mode]}</td>
+                    <td>
+                      <span className="meta">
+                        <Icon name="calendar" size={14} />
+                        {formatTime(m.startedAt)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge">{MODE_TEXT[m.mode]}</span>
+                    </td>
                     <td>
                       {m.opponent == null
                         ? '-'
@@ -139,27 +173,31 @@ export function RecordsScreen() {
                           ? `AI (${difficultyLabel(m.opponent.aiDifficulty ?? '')})`
                           : `${m.opponent.nickname}#${m.opponent.tag}`}
                     </td>
-                    <td>{m.status === 'ABORTED' ? '무효' : RESULT_TEXT[m.myResult]}</td>
-                    <td className="num">{m.myScore.toLocaleString()}</td>
-                    <td>{formatDuration(m.durationMs)}</td>
-                    <td>{m.endReason ? END_TEXT[m.endReason] ?? m.endReason : '-'}</td>
+                    <td>
+                      <ResultBadge result={m.status === 'ABORTED' ? 'ABORTED' : m.myResult} />
+                    </td>
+                    <td className="num strong">{m.myScore.toLocaleString()}</td>
+                    <td className="num">{formatDuration(m.durationMs)}</td>
+                    <td className="cell-2">{m.endReason ? END_TEXT[m.endReason] ?? m.endReason : '-'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             </div>
           )}
-          <div className="row" style={{ marginTop: 12 }}>
+          {data.items.length > 0 && (
+          <div className="pager">
             <button className="secondary" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
               이전
             </button>
-            <span className="muted">
-              {page + 1} / {lastPage + 1}
+            <span className="meta num">
+              <b>{page + 1}</b> / {lastPage + 1}
             </span>
             <button className="secondary" disabled={page >= lastPage} onClick={() => setPage((p) => p + 1)}>
               다음
             </button>
           </div>
+          )}
         </section>
       )}
     </main>

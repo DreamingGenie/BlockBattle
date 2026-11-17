@@ -6,7 +6,15 @@
   --line: #2f3035;
   --text: #ececec;
   --muted: #9b9ca1;
+  /* 보조 정보(일시·정렬 기준·전적 부가값): --muted보다 한 단계 밝고 굵게 써서 검은 바탕에서 묻히지 않게 한다 */
+  --text-2: #c6c7cc;
   --accent: #f0b429;
+  --accent-soft: rgba(240, 180, 41, 0.12);
+  --accent-line: rgba(240, 180, 41, 0.45);
+  --ok-soft: rgba(87, 171, 90, 0.14);
+  --danger-soft: rgba(229, 83, 75, 0.14);
+  --tone-cyan: #5fc6dd;
+  --tone-pink: #f08bb8;
   --accent-ink: #1d1600;
   --danger: #e5534b;
   --ok: #57ab5a;
@@ -254,12 +262,202 @@ button.mode:hover .mode-name {
   border-bottom: 1px solid var(--line);
 }
 
+/* ── 디자인 체계: 배지·칩·보조 글씨 ──
+   badge = 짧은 상태 꼬리표(게스트·방장·승/패), chip = 아이콘 + 값을 담는 알약(내 기록·총 경기 수),
+   meta = 아이콘을 앞에 둔 보조 정보(일시·부가값), caption-pill = 화면 설명(정렬 기준). */
 .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
   border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 1px 6px;
+  border-radius: 999px;
+  padding: 1px 9px;
+  color: var(--text-2);
+  background: var(--panel-2);
+  white-space: nowrap;
+}
+
+.badge.ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+
+.badge.danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+.badge.accent {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.chip b {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.chip.accent {
+  color: var(--text);
+  background: linear-gradient(180deg, rgba(240, 180, 41, 0.16), rgba(240, 180, 41, 0.06));
+  border-color: var(--accent-line);
+}
+
+.chip.accent .icon,
+.chip.accent b {
+  color: var(--accent);
+}
+
+.chip-sep {
+  width: 1px;
+  height: 14px;
+  background: currentColor;
+  opacity: 0.35;
+}
+
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.meta .icon {
   color: var(--muted);
+  flex: none;
+}
+
+.caption-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.caption-pill b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.caption-pill .icon {
+  color: var(--accent);
+}
+
+.icon {
+  flex: none;
+  vertical-align: -0.15em;
+}
+
+/* 상태 점: 연결됨·연결 중 */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.status.on::before {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px var(--ok-soft);
+}
+
+.status.wait::before {
+  background: var(--accent);
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.3; }
+}
+
+/* 빈 화면 안내 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 40px auto 0;
+  padding: 28px 20px;
+  max-width: 420px;
+  text-align: center;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+
+.empty-state > .icon {
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.empty-state p {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* 글자만 있는 보조 버튼(로그아웃 등) */
+button.ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+button.ghost:hover {
+  color: var(--text);
+  border-color: var(--muted);
 }
 
 .muted {
@@ -686,9 +884,6 @@ button.rank-tab:active {
   transform: scale(0.95);
 }
 
-.rank-caption {
-  margin: 10px 2px 0;
-}
 
 .rank-empty {
   margin-top: 40px;
@@ -727,9 +922,6 @@ button.rank-tab:active {
   box-shadow: 0 0 30px color-mix(in srgb, var(--medal) 40%, transparent);
 }
 
-.podium-slot.empty {
-  visibility: hidden;
-}
 
 .place-1 { --medal: #f5c542; min-height: 230px; box-shadow: 0 0 36px rgba(245, 197, 66, 0.3); }
 .place-2 { --medal: #c9ccd3; min-height: 195px; }
@@ -1231,4 +1423,170 @@ canvas.board {
 .podium-slot {
   flex: 0 1 300px;
   min-width: 0;
+}
+
+/* 시상대 빈 자리: 칸은 차지하되 점선·흐린 메달로 비어 있음을 보인다 */
+.podium-slot.empty {
+  --medal: #4a4c53;
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+.podium-slot.empty:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.podium-slot.empty .medal {
+  color: var(--muted);
+  background: var(--panel-2);
+  box-shadow: none;
+  animation: none;
+}
+
+.podium-slot.empty .podium-name {
+  color: var(--muted);
+}
+
+.podium-slot.empty .podium-base {
+  opacity: 0.4;
+}
+
+.podium-date {
+  justify-content: center;
+}
+
+.rank-caption {
+  margin-top: 12px;
+}
+
+.rank-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rank-date {
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .podium {
+    gap: 8px;
+  }
+
+  .podium-slot {
+    padding: 14px 6px 0;
+  }
+
+  .podium-name {
+    font-size: 14px;
+  }
+
+  .podium-value,
+  .place-1 .podium-value {
+    font-size: 18px;
+  }
+
+  .podium-date {
+    font-size: 12px;
+  }
+
+  .topbar .chip {
+    padding: 4px 10px;
+    font-size: 13px;
+  }
+}
+
+/* 기록 목록·경기 상세 */
+.records-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.records-filter .rank-tabs {
+  margin: 0;
+}
+
+.records-filter select {
+  padding: 5px 10px;
+}
+
+td.strong {
+  font-weight: 800;
+}
+
+td.cell-2 {
+  color: var(--text-2);
+}
+
+th {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-2);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.pager .meta b {
+  color: var(--text);
+  font-weight: 800;
+}
+
+/* 보드 위 이름·점수 줄(vs AI·친구 대전). 예전 문단(위아래 1em 여백)보다 낮게 잡아 T-44 판 높이 계산을 넘지 않는다 */
+.board-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.board-label b {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.modal-backdrop .chip {
+  margin: 0 auto;
+}
+
+/* 좁은 화면: 표 칸 안에서 줄바꿈하지 않고 표 전체를 가로로 넘긴다(.table-wrap이 스크롤) */
+.table-wrap th,
+.table-wrap td {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  /* 제목 줄 오른쪽 칩(내 기록·총 경기)이 길면 다음 줄 가운데로 내려 제목이 가운데에 남게 한다 */
+  .topbar > .chip:last-child {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+
+  .podium-date .icon {
+    display: none;
+  }
+
+  .podium-date {
+    text-align: center;
+  }
 }

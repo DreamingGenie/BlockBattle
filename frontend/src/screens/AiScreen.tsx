@@ -204,7 +204,10 @@ export function AiScreen() {
       </header>
       <section className="play">
         <div className="board-wrap">
-          <p className="muted">나 · {hud.me.toLocaleString()}점</p>
+          <p className="board-label">
+            <span>나</span>
+            <b className="num">{hud.me.toLocaleString()}점</b>
+          </p>
           <BoardCanvas ref={myBoard} label="내 보드" sound />
           {phase === 'starting' && <div className="overlay">경기를 준비하는 중…</div>}
           {phase === 'saving' && <div className="overlay">결과를 저장하는 중…</div>}
@@ -218,7 +221,10 @@ export function AiScreen() {
           )}
         </div>
         <div className="board-wrap">
-          <p className="muted">AI · {hud.ai.toLocaleString()}점</p>
+          <p className="board-label">
+            <span>AI · {difficultyLabel(difficulty)}</span>
+            <b className="num">{hud.ai.toLocaleString()}점</b>
+          </p>
           <BoardCanvas ref={aiBoard} cell={20} label="AI 보드" />
         </div>
       </section>

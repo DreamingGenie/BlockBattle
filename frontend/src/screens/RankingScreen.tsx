@@ -5,6 +5,8 @@ import { useSession } from '../app/session';
 import { formatTime } from './RecordsScreen';
 import { formatWinTime, objectParticle } from '../app/format';
 import { difficultyLabel } from '../ai/types';
+import { Icon } from '../app/Icon';
+import { listRows, podiumSlots } from './podium';
 
 /** GET /rankings/solo (API-010) */
 interface SoloRanking {
@@ -36,7 +38,7 @@ export function RankingScreen() {
   const { api, me } = useSession();
   const [tab, setTab] = useState<Tab>('SOLO');
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [mine, setMine] = useState<string | null>(null);
+  const [mine, setMine] = useState<{ rank: number; value: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,13 +51,13 @@ export function RankingScreen() {
         const d = await api.get<SoloRanking>('/rankings/solo', { query: { limit: 10 } });
         return {
           rows: d.top.map((e) => ({ rank: e.rank, userId: e.userId, name: `${e.nickname}#${e.tag}`, value: `${e.score.toLocaleString()}점`, achievedAt: e.achievedAt })),
-          mine: d.me ? `${d.me.rank}위 · ${d.me.score.toLocaleString()}점` : null,
+          mine: d.me ? { rank: d.me.rank, value: `${d.me.score.toLocaleString()}점` } : null,
         };
       }
       const d = await api.get<AiRanking>('/rankings/ai', { query: { difficulty: tab, limit: 10 } });
       return {
         rows: d.top.map((e) => ({ rank: e.rank, userId: e.userId, name: `${e.nickname}#${e.tag}`, value: formatWinTime(e.durationMs), achievedAt: e.achievedAt })),
-        mine: d.me ? `${d.me.rank}위 · ${formatWinTime(d.me.durationMs)}` : null,
+        mine: d.me ? { rank: d.me.rank, value: formatWinTime(d.me.durationMs) } : null,
       };
     };
     load()
@@ -77,7 +79,21 @@ export function RankingScreen() {
           ← 로비
         </button>
         <strong>랭킹</strong>
-        <span className="muted">{mine ? `내 기록 ${mine}` : ''}</span>
+        {rows === null ? (
+          <span />
+        ) : mine ? (
+          <span className="chip accent" title="내 기록">
+            <Icon name="trophy" />
+            내 기록 <b className="num">{mine.rank}위</b>
+            <span className="chip-sep" />
+            <span className="num">{mine.value}</span>
+          </span>
+        ) : (
+          <span className="chip">
+            <Icon name="trophy" />
+            아직 내 기록 없음
+          </span>
+        )}
       </header>
       <div className="rank-tabs" role="tablist">
         {TABS.map((t) => (
@@ -86,34 +102,70 @@ export function RankingScreen() {
           </button>
         ))}
       </div>
-      <p className="muted small rank-caption">{tab === 'SOLO' ? '싱글 최고 점수 순' : `AI ${difficultyLabel(tab)}${objectParticle(tab)} 가장 빨리 이긴 시간 순`}</p>
+      <p className="caption-pill rank-caption">
+        <Icon name="sort" />
+        {tab === 'SOLO' ? (
+          <span>
+            <b>싱글 최고 점수</b> 높은 순
+          </span>
+        ) : (
+          <span>
+            <b>AI {difficultyLabel(tab)}</b>
+            {objectParticle(tab)} 가장 빨리 이긴 시간 순
+          </span>
+        )}
+      </p>
       {error && <p className="error">{error}</p>}
-      {rows && rows.length === 0 && <p className="muted rank-empty">아직 기록이 없습니다. 첫 번째 주인공이 되어 보세요!</p>}
+      {rows && rows.length === 0 && (
+        <div className="empty-state">
+          <Icon name="trophy" size={34} />
+          <p>아직 기록이 없습니다.</p>
+          <p className="meta">첫 번째 주인공이 되어 보세요!</p>
+        </div>
+      )}
       {rows && rows.length > 0 && (
         <div key={tab} className="rank-board">
           <ol className="podium">
-            {[1, 0, 2].map((i) => {
-              const r = rows[i];
-              if (!r) return null; // 빈 자리는 그리지 않아 있는 칸끼리 가운데로 모인다(T-45)
-              return (
-                <li key={r.userId} className={`podium-slot place-${r.rank}${r.userId === me?.userId ? ' mine' : ''}`} style={{ animationDelay: `${i * 90}ms` }}>
+            {podiumSlots(rows).map(({ place, row: r }, i) =>
+              r ? (
+                <li key={r.userId} className={`podium-slot place-${place}${r.userId === me?.userId ? ' mine' : ''}`} style={{ animationDelay: `${i * 90}ms` }}>
                   <span className="medal">{r.rank}</span>
-                  <span className="podium-name">{r.name}</span>
+                  <span className="podium-name">
+                    {r.name}
+                    {r.userId === me?.userId && <span className="badge ok">나</span>}
+                  </span>
                   <span className="podium-value num">{r.value}</span>
-                  <span className="podium-date muted small">{formatTime(r.achievedAt)}</span>
+                  <span className="meta podium-date">
+                    <Icon name="calendar" size={14} />
+                    {formatTime(r.achievedAt)}
+                  </span>
                   <span className="podium-base" />
                 </li>
-              );
-            })}
+              ) : (
+                // 빈 자리도 칸을 차지해 1위가 늘 가운데에 온다
+                <li key={`empty-${place}`} className={`podium-slot place-${place} empty`} style={{ animationDelay: `${i * 90}ms` }}>
+                  <span className="medal">{place}</span>
+                  <span className="podium-name">빈 자리</span>
+                  <span className="meta podium-date">도전해 보세요</span>
+                  <span className="podium-base" />
+                </li>
+              ),
+            )}
           </ol>
           {rows.length > 3 && (
             <ol className="rank-list" start={4}>
-              {rows.slice(3).map((r, i) => (
+              {listRows(rows).map((r, i) => (
                 <li key={r.userId} className={`rank-row${r.userId === me?.userId ? ' mine' : ''}`} style={{ animationDelay: `${300 + i * 40}ms` }}>
                   <span className="rank-no num">{r.rank}</span>
-                  <span className="rank-name">{r.name}</span>
+                  <span className="rank-name">
+                    {r.name}
+                    {r.userId === me?.userId && <span className="badge ok">나</span>}
+                  </span>
                   <span className="rank-value num">{r.value}</span>
-                  <span className="rank-date muted small">{formatTime(r.achievedAt)}</span>
+                  <span className="meta rank-date">
+                    <Icon name="calendar" size={14} />
+                    {formatTime(r.achievedAt)}
+                  </span>
                 </li>
               ))}
             </ol>
