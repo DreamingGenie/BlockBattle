@@ -39,6 +39,8 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
   const matchId = useRef<number | null>(null);
   const startsAt = useRef(0);
   const finished = useRef(false);
+  /** GAME_OVER를 받은 경기. 이 경기의 RESYNC로는 다시 움직이지 않는다 */
+  const overFor = useRef<number | null>(null);
   const resyncing = useRef(false);
   const stopResync = useRef<(() => void) | undefined>(undefined);
   const opponent = useRef<{ board: Board; score: number }>({ board: emptyBoard(), score: 0 });
@@ -85,6 +87,7 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
     },
     gameOver(p) {
       finished.current = true;
+      overFor.current = p.matchId;
       if (p.winnerUserId === myId) {
         oppBoard.current?.topout();
         sfx.win();
@@ -123,6 +126,12 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
         setRematch({});
       }
       g.restore(restoreArgs(p));
+      if (finished.current && overFor.current !== p.matchId) {
+        // 내가 topout을 신고했지만 서버 보드에서는 아직 블록이 나온다(방해 줄 도착 시차 등). 멈춰 있으면 경기가 끝나지 않아
+        // 늦게 topout한 상대가 지므로, 서버 보드로 맞춘 뒤 이어 한다
+        finished.current = false;
+        myBoard.current?.reset();
+      }
       if (p.opponent) opponent.current = { board: boardFromString(p.opponent.board), score: p.opponent.score };
       setScores((s) => ({ me: p.me?.score ?? s.me, opp: p.opponent?.score ?? s.opp }));
       resyncing.current = false;
@@ -154,7 +163,7 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
         } else if (event.type === 'topout') {
           finished.current = true;
           myBoard.current?.topout();
-          send(`/app/rooms/${code}/topout`, { seq: g.seq });
+          send(`/app/rooms/${code}/topout`, { seq: g.seq, holdUsed: g.holdUsed });
         }
       }
     } else {

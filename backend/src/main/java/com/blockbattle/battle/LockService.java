@@ -89,10 +89,14 @@ public class LockService {
     static final Duration DRAW_WINDOW = Duration.ofMillis(100);
 
     /**
-     * API 명세 5.3 topout. seq가 마지막 lock과 같고, 서버 보드에서 다음 블록이 생성 자리(회전 0, x 3, y 0)에 들어가지 않을 때만 받는다.
-     * topoutAt을 남기고 100ms 뒤 상대 topout을 보고 TOP_OUT·DRAW를 정한다(BR-04). 확인되지 않으면 무시한다.
+     * API 명세 5.3 topout. 클라이언트 신고는 보조 신호다 — 다음 블록이 막힌 lock은 handle()이 서버 보드로 직접 판정한다.
+     * seq가 마지막 lock과 같고 서버 보드에서 나올 블록(홀드로 나온 블록 포함)이 생성 자리(회전 0, x 3, y 0)에 들어가지 않으면
+     * topoutAt을 남기고 100ms 뒤 상대 topout을 보고 TOP_OUT·DRAW를 정한다(BR-04).
+     * 서버 보드에서는 아직 나올 수 있으면 INVALID_LOCK과 서버 보드를 보내 클라이언트가 RESYNC로 맞춰 이어 하게 한다.
+     * 그냥 버리면 클라이언트는 멈춘 채 경기가 끝나지 않아, 늦게 topout한 상대가 지게 된다.
+     * seq가 다르면 무시한다(옛 신고이거나, 거부된 lock 뒤의 신고라 그 클라이언트는 이미 RESYNC로 맞추는 중이다).
      */
-    public void topout(String code, long userId, Integer seq) {
+    public void topout(String code, long userId, Integer seq, Boolean holdUsed) {
         Map<String, String> room = rooms.getRoom(code);
         String current = room.get("currentMatchId");
         if (seq == null || !"PLAYING".equals(room.get("status")) || current == null || current.isBlank()) return;
@@ -100,13 +104,27 @@ public class LockService {
         synchronized (lockOf(matchId)) {
             PlayerState me = states.load(matchId, userId);
             if (me.topoutAt() != null || seq != me.seq()) return;
-            Piece next = new PieceSequence(seedOf(matchId)).at(me.pieceIndex());
-            if (me.board().fits(new Placement(next, 0, 3, 0))) return; // 아직 나올 수 있다
-            states.save(matchId, userId, new PlayerState(me.board(), me.seq(), me.pieceIndex(), me.hold(), me.holdUsed(),
-                    me.pending(), me.combo(), me.b2b(), me.score(), me.linesCleared(), me.level(), me.piecesPlaced(),
-                    me.attackSent(), me.attackReceived(), me.maxCombo(), clock.millis()));
+            if (canSpawn(matchId, me, Boolean.TRUE.equals(holdUsed))) {
+                rejectLock(userId, seq, me);
+                return;
+            }
+            states.save(matchId, userId, withTopout(me));
         }
         scheduler.after(DRAW_WINDOW, () -> decideTopout(code, matchId, userId));
+    }
+
+    /** 다음에 나올 블록이 서버 보드의 생성 자리에 들어가는지. 홀드로 나오는 블록은 홀드 칸이 비었으면 그다음 블록이다 */
+    private boolean canSpawn(long matchId, PlayerState me, boolean viaHold) {
+        PieceSequence sequence = new PieceSequence(seedOf(matchId));
+        Piece next = !viaHold ? sequence.at(me.pieceIndex())
+                : me.hold() != null ? me.hold() : sequence.at(me.pieceIndex() + 1);
+        return me.board().fits(new Placement(next, 0, 3, SPAWN_Y));
+    }
+
+    private PlayerState withTopout(PlayerState s) {
+        return new PlayerState(s.board(), s.seq(), s.pieceIndex(), s.hold(), s.holdUsed(), s.pending(), s.combo(), s.b2b(),
+                s.score(), s.linesCleared(), s.level(), s.piecesPlaced(), s.attackSent(), s.attackReceived(), s.maxCombo(),
+                clock.millis());
     }
 
     private void decideTopout(String code, long matchId, long userId) {
@@ -130,6 +148,7 @@ public class LockService {
         long opponentId = rooms.getPlayers(code).keySet().stream().filter(id -> id != userId).findFirst().orElse(-1L);
 
         // 같은 경기의 lock과 공격 반영은 순서대로(단일 서버 기준, T-12 계획 unlinked)
+        boolean toppedOut;
         synchronized (lockOf(matchId)) {
             PlayerState me = states.load(matchId, userId);
             if (msg == null || msg.seq() == null) return;
@@ -139,7 +158,10 @@ public class LockService {
                 rejectLock(userId, msg.seq(), me);
                 return;
             }
-            states.save(matchId, userId, outcome.state());
+            // 이 lock 뒤 다음 블록이 서버 보드에서 막히면 서버가 바로 topout으로 본다. 클라이언트의 topout 신고가
+            // lock보다 먼저 처리되거나 사라져도 경기가 끝나지 않는 일이 없게 한다(BR-04)
+            toppedOut = !canSpawn(matchId, outcome.state(), false);
+            states.save(matchId, userId, toppedOut ? withTopout(outcome.state()) : outcome.state());
             keyPresses.record(matchId, userId, msg.keyPresses()); // 봇 판정용(T-41, 선택 필드)
             rooms.touch(code); // lock은 활동이다(POL-024)
 
@@ -168,6 +190,7 @@ public class LockService {
                 events.publish(code, "ATTACK", Map.of("fromUserId", userId, "toUserId", opponentId, "lines", sent, "holeColumn", hole));
             }
         }
+        if (toppedOut) scheduler.after(DRAW_WINDOW, () -> decideTopout(code, matchId, userId));
     }
 
     private record Outcome(PlayerState state, LockRules.Result result) {

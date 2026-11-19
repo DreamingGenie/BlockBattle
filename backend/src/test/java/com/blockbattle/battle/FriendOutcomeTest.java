@@ -149,6 +149,64 @@ class FriendOutcomeTest {
         assertThat(jdbc.queryForObject("SELECT status FROM matches WHERE id = ?", String.class, matchId)).isEqualTo("PLAYING");
     }
 
+    /**
+     * 깨지면: 클라이언트의 topout 신고가 마지막 lock보다 먼저 처리되거나 사라졌을 때 경기가 끝나지 않고,
+     * 먼저 천장에 닿은 사람 대신 늦게 topout한 상대가 진다(11-19 제보된 버그).
+     */
+    @Test
+    void 마지막_lock으로_다음_블록이_막히면_topout_신고_없이도_서버가_판정한다() throws Exception {
+        int oIndex = 0;
+        while (sequence.at(oIndex) != Piece.O) oIndex++;
+        List<String> rows = new ArrayList<>();
+        for (int i = 2; i < Board.HEIGHT; i++) rows.add("GGGGGGGGG0"); // 맨 위 2행(생성 자리)만 비었다, 줄은 지워지지 않는다
+        states.save(matchId, host, new PlayerState(Board.fromBottomRows(rows), 0, oIndex, null, false, List.of(), -1, false,
+                0, 0, 1, 0, 0, 0, 0, null));
+        Map<String, Object> body = new HashMap<>();
+        body.put("seq", 1);
+        body.put("piece", "O");
+        body.put("rotation", 0);
+        body.put("x", 3);
+        body.put("y", 0); // 생성 자리 그대로 놓는다 → 다음 블록이 나올 곳이 없다
+        body.put("holdUsed", false);
+        body.put("lastMove", "DROP");
+        body.put("linesCleared", 0);
+        hostSession.send("/app/rooms/" + code + "/lock", body);
+
+        JsonNode over = next(topic, "GAME_OVER").get("payload");
+        assertThat(over.get("reason").asText()).isEqualTo("TOP_OUT");
+        assertThat(over.get("winnerUserId").asLong()).isEqualTo(guest);
+    }
+
+    /** 깨지면: 서버 보드와 어긋난 topout 신고를 그냥 버려, 신고한 쪽 화면은 멈추고 경기는 끝나지 않는다 */
+    @Test
+    void 서버_보드에서는_블록이_나올_수_있는데_topout을_신고하면_INVALID_LOCK과_서버_보드를_보낸다() throws Exception {
+        BlockingQueue<JsonNode> errors = subscribe(hostSession, "/user/queue/errors");
+        hostSession.send("/app/rooms/" + code + "/topout", Map.of("seq", 0)); // 빈 보드
+
+        JsonNode error = errors.poll(5, TimeUnit.SECONDS);
+        assertThat(error).isNotNull();
+        assertThat(error.get("code").asText()).isEqualTo("INVALID_LOCK");
+        assertThat(error.at("/payload/board").asText()).isEqualTo(Board.empty().toString());
+        assertThat(error.at("/payload/nextSeq").asInt()).isEqualTo(1);
+        assertThat(poll(topic, "GAME_OVER", 500)).isNull();
+    }
+
+    /** 깨지면: 홀드로 꺼낸 블록이 막혀 끝난 경우를 서버가 인정하지 않아 그 클라이언트가 계속 되돌려진다 */
+    @Test
+    void 홀드로_꺼낸_블록이_막히면_holdUsed로_신고한_topout을_받는다() throws Exception {
+        int index = 0;
+        while (sequence.at(index) == Piece.I || sequence.at(index + 1) != Piece.I) index++;
+        List<String> rows = new ArrayList<>();
+        rows.add("000000G000"); // 위에서 둘째 행 6열: I(1행 3~6열)만 막고 나머지 블록은 나올 수 있다
+        for (int i = 2; i < Board.HEIGHT; i++) rows.add("0000000000");
+        states.save(matchId, host, new PlayerState(Board.fromBottomRows(rows), 0, index, null, false, List.of(), -1, false,
+                0, 0, 1, 0, 0, 0, 0, null));
+        hostSession.send("/app/rooms/" + code + "/topout", Map.of("seq", 0, "holdUsed", true));
+
+        JsonNode over = next(topic, "GAME_OVER").get("payload");
+        assertThat(over.get("winnerUserId").asLong()).isEqualTo(guest);
+    }
+
     @Test
     void 두_사람이_100ms_안에_topout하면_무승부이고_전적은_바뀌지_않는다() throws Exception {
         states.save(matchId, host, blockedState());

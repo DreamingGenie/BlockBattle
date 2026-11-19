@@ -320,7 +320,7 @@ softDropCells·hardDropCells는 이 블록이 소프트 드롭·하드 드롭으
 
 ### 5.3 SEND /app/rooms/{code}/topout — 게임오버 알림
 
-payload: { "seq": 120 }. 서버는 자기 보드로 topout을 확인한 뒤 BR-04로 승패를 정하고 GAME_OVER를 방송한다.
+payload: { "seq": 120, "holdUsed": false }. holdUsed(선택)는 홀드로 꺼낸 블록이 나올 자리에서 막혔을 때 true다. 서버는 자기 보드로 topout을 확인한 뒤 BR-04로 승패를 정하고 GAME_OVER를 방송한다. 서버 보드에서는 아직 블록이 나올 수 있으면 INVALID_LOCK(5.6)과 서버 보드를 보내고, 클라이언트는 RESYNC로 맞춰 이어 한다. 또 서버는 lock(5.2)을 받아들인 뒤 다음 블록이 생성 자리에 들어가지 않으면 이 메시지 없이도 topout으로 판정한다(2026-11-19).
 
 ### 5.4 SEND /app/rooms/{code}/rematch — 재대결 수락·거절 (Should)
 
