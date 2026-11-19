@@ -75,9 +75,13 @@ export function RoomScreen({ code }: { code: string }) {
         case 'PLAYER_RECONNECTED':
           setNotice(`${names[(message.payload as { userId?: number }).userId ?? -1] ?? '상대'}이(가) 다시 연결했습니다.`);
           break;
-        case 'PLAYER_OUT':
-          match.current?.playerOut(message.payload as unknown as PlayerOutPayload);
+        case 'PLAYER_OUT': {
+          const out = message.payload as unknown as PlayerOutPayload;
+          match.current?.playerOut(out);
+          // 끊김 안내("10초 동안 기다립니다")는 다시 붙을 때까지 남으므로, 탈락이 확정되면 탈락 안내로 바꾼다
+          if (out.userId !== me?.userId) setNotice(`${names[out.userId] ?? '상대'}이(가) ${out.placement}위로 탈락했습니다.`);
           break;
+        }
         case 'HOST_CHANGED': {
           const id = (message.payload as { userId?: number }).userId;
           setNotice(id === me?.userId ? '방장이 나가서 내가 방장이 되었습니다.' : `방장이 나가서 ${names[id ?? -1] ?? '다른 참가자'}이(가) 방장이 되었습니다.`);

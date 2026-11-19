@@ -2063,3 +2063,19 @@ button.logout-option.danger:hover:not(:disabled) {
 .match-panel .board-wrap.out {
   opacity: 0.45;
 }
+
+/* 다인 대전: 상대 보드는 내 보드 옆에 모은다. 셋이면 2열 두 줄(줄바꿈으로 내 보드 아래로 밀리지 않게) */
+.match-panel .opponents {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.match-panel .opponents.multi {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+}
+
+.match-panel .opponents.multi .board-wrap {
+  padding: 8px;
+}
