@@ -108,6 +108,11 @@ public class MatchRepository {
                 s.maxCombo(), matchId, slot);
     }
 
+    /** 친구 대전 등수(V5). 1 = 마지막까지 남은 사람 */
+    public void setPlacement(long matchId, int slot, int placement) {
+        jdbc.update("UPDATE match_players SET placement = ? WHERE match_id = ? AND slot = ?", placement, matchId, slot);
+    }
+
     public record FriendMatch(long id, long roomId, Instant startedAt, Map<Long, Integer> slots) {
     }
 

@@ -261,7 +261,7 @@ ranked=false 경기와, 신고한 플레이 시간이 서버 경과 시간(ended
 
 ### 3.15 POST /rooms/{roomCode}/leave — 방 퇴장
 
-요청 본문 없음. 응답 204. 방장이 나가면 방을 닫고 ROOM_CLOSED(HOST_LEFT)를 보낸다. 경기 중이면 나간 쪽 패배로 확정한다(BR-04·BR-03).
+요청 본문 없음. 응답 204. 방장이 나가 한 사람만 남으면 방을 닫고 ROOM_CLOSED(HOST_LEFT)를 보낸다. 두 사람 이상 남으면 userId가 가장 작은 사람이 방장을 넘겨받고 HOST_CHANGED를 보낸다(FR-BAT-04). 경기 중이면 나간 쪽을 탈락시킨다(2인이면 나간 쪽 패배, BR-04·BR-03).
 
 오류: NOT_PARTICIPANT(403), ROOM_NOT_FOUND(404)
 
@@ -339,9 +339,11 @@ payload: { "accept": true }. 방이 FINISHED일 때만 받는다. REMATCH_CHANGE
 | ATTACK | 상쇄 뒤 남은 공격 | { "fromUserId": 12, "toUserId": 31, "lines": 3, "holeColumn": 4 } |
 | GAME_OVER | 라운드 승패 확정 | { "matchId": 402, "winnerUserId": 12, "reason": "TOP_OUT", "seriesWins": { "12": 1, "31": 0 }, "seriesWinnerUserId": null, "nextRoundStartsAt": 1794293190000, "stats": [ { "userId": 12, "score": 12400, "attackSent": 38, "attackReceived": 21, "maxCombo": 5, "apm": 12.4 } ] } |
 | REMATCH_CHANGED | 재대결 수락·거절 (Should) | { "userId": 31, "accept": true } |
+| PLAYER_OUT | 다인 대전에서 탈락했지만 두 명 이상 남아 경기가 이어짐 (FR-BAT-04) | { "userId": 31, "placement": 3, "reason": "TOP_OUT" } — reason은 TOP_OUT, LEFT, DISCONNECT |
+| HOST_CHANGED | 방장이 나가고 두 명 이상 남음 (FR-BAT-04) | { "userId": 12 } |
 | ROOM_CLOSED | 방이 닫힘 | { "reason": "HOST_LEFT" } — reason은 HOST_LEFT, EMPTY, EXPIRED, UNRECOVERABLE |
 
-GAME_OVER의 reason은 TOP_OUT, DRAW, LEFT, DISCONNECT 중 하나다. 무승부면 winnerUserId가 null이다. 시리즈가 끝났으면 seriesWinnerUserId에 값이 있고 nextRoundStartsAt은 null이다. board 문자열은 ERD 명세서 6장 형식이다.
+GAME_OVER의 reason은 TOP_OUT, DRAW, LEFT, DISCONNECT 중 하나다. 무승부면 winnerUserId가 null이다. placements는 참가자별 등수({ "12": 1, "31": 2 })이고, 3명 이상 경기는 1판이라 seriesWinnerUserId가 1위(무승부면 null)이고 nextRoundStartsAt은 null이다(FR-BAT-04). 시리즈가 끝났으면 seriesWinnerUserId에 값이 있고 nextRoundStartsAt은 null이다. board 문자열은 ERD 명세서 6장 형식이다.
 
 ### 5.6 SUBSCRIBE /user/queue/errors — 개인 오류
 
@@ -363,7 +365,7 @@ INVALID_LOCK이면 클라이언트는 payload의 서버 보드로 바꾸고 next
   "seed": 551203, "me": { "score": 12400, "linesCleared": 41, "level": 5, "combo": 1, "b2b": true } } }
 ```
 
-seed는 경기 시드(COUNTDOWN과 같은 값), me는 서버 진행 상태 원본의 내 성적이다(POL-006). 페이지를 새로 연 클라이언트는 seed와 pieceIndex로 블록 순서를 다시 만들고 me로 성적 표시를 복원해 경기를 이어 한다.
+seed는 경기 시드(COUNTDOWN과 같은 값), me는 서버 진행 상태 원본의 내 성적이다(POL-006). opponents는 상대 전부의 { userId, board, score, out }이고(out은 이미 탈락), opponent는 그 첫 항목이다(2인 화면 호환, FR-BAT-04). 페이지를 새로 연 클라이언트는 seed와 pieceIndex로 블록 순서를 다시 만들고 me로 성적 표시를 복원해 경기를 이어 한다.
 
 ### 5.8 친구 대전 한 판의 흐름
 

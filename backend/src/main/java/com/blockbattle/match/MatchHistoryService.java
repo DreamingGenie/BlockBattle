@@ -23,8 +23,10 @@ public class MatchHistoryService {
     public record Opponent(String playerType, Long userId, String nickname, String tag, String aiDifficulty) {
     }
 
+    /** opponent는 첫 상대(슬롯 순), playerCount는 참가자 수, myPlacement는 친구 대전 등수(V5 전 경기·싱글·AI는 null) */
     public record MatchItem(long matchId, String mode, String status, String endReason, OffsetDateTime startedAt,
-                            Integer durationMs, String myResult, int myScore, Opponent opponent) {
+                            Integer durationMs, String myResult, int myScore, Opponent opponent, int playerCount,
+                            Integer myPlacement) {
     }
 
     public record MatchPage(List<MatchItem> items, int page, int size, long totalElements) {
@@ -35,7 +37,7 @@ public class MatchHistoryService {
 
     public record PlayerDetail(int slot, String playerType, Long userId, String nickname, String tag, String result,
                                int score, int linesCleared, int level, int piecesPlaced, int attackSent,
-                               int attackReceived, int maxCombo, double apm) {
+                               int attackReceived, int maxCombo, double apm, Integer placement) {
     }
 
     public record MatchDetail(long matchId, String mode, String status, String endReason, String aiDifficulty,
@@ -63,9 +65,11 @@ public class MatchHistoryService {
         Long total = jdbc.queryForObject("SELECT COUNT(*) " + where, p, Long.class);
         List<MatchItem> items = jdbc.query("""
                 SELECT m.id, m.mode, m.status, m.end_reason, m.started_at, m.duration_ms, m.ai_difficulty,
-                       me.result, me.score, op.player_type AS op_type, op.user_id AS op_user, u.nickname, u.tag
+                       me.result, me.score, me.placement, op.player_type AS op_type, op.user_id AS op_user, u.nickname, u.tag,
+                       (SELECT COUNT(*) FROM match_players c WHERE c.match_id = m.id) AS player_count
                 """ + where.replace("WHERE", """
-                LEFT JOIN match_players op ON op.match_id = m.id AND op.slot <> me.slot
+                LEFT JOIN match_players op ON op.match_id = m.id AND op.slot = (
+                    SELECT MIN(o.slot) FROM match_players o WHERE o.match_id = m.id AND o.slot <> me.slot)
                 LEFT JOIN users u ON u.id = op.user_id
                 WHERE""") + " ORDER BY m.started_at DESC, m.id DESC LIMIT :size OFFSET :offset", p, (rs, i) -> {
             Opponent opponent = rs.getString("op_type") == null ? null : new Opponent(rs.getString("op_type"),
@@ -73,7 +77,7 @@ public class MatchHistoryService {
                     "AI".equals(rs.getString("op_type")) ? rs.getString("ai_difficulty") : null);
             return new MatchItem(rs.getLong("id"), rs.getString("mode"), rs.getString("status"), rs.getString("end_reason"),
                     time(rs.getTimestamp("started_at")), intOrNull(rs, "duration_ms"), rs.getString("result"),
-                    rs.getInt("score"), opponent);
+                    rs.getInt("score"), opponent, rs.getInt("player_count"), intOrNull(rs, "placement"));
         });
         return new MatchPage(items, page, size, total == null ? 0 : total);
     }
@@ -95,13 +99,13 @@ public class MatchHistoryService {
         Integer durationMs = m.durationMs();
         List<PlayerDetail> players = jdbc.query("""
                 SELECT p.slot, p.player_type, p.user_id, u.nickname, u.tag, p.result, p.score, p.lines_cleared, p.level,
-                       p.pieces_placed, p.attack_sent, p.attack_received, p.max_combo
+                       p.pieces_placed, p.attack_sent, p.attack_received, p.max_combo, p.placement
                 FROM match_players p LEFT JOIN users u ON u.id = p.user_id
                 WHERE p.match_id = :id ORDER BY p.slot""", p, (rs, i) -> new PlayerDetail(rs.getInt("slot"),
                 rs.getString("player_type"), longOrNull(rs, "user_id"), rs.getString("nickname"), rs.getString("tag"),
                 rs.getString("result"), rs.getInt("score"), rs.getInt("lines_cleared"), rs.getInt("level"),
                 rs.getInt("pieces_placed"), rs.getInt("attack_sent"), rs.getInt("attack_received"), rs.getInt("max_combo"),
-                Apm.of(rs.getInt("attack_sent"), durationMs)));
+                Apm.of(rs.getInt("attack_sent"), durationMs), intOrNull(rs, "placement")));
         if (players.stream().noneMatch(pl -> pl.userId() != null && pl.userId() == userId)) {
             throw new ApiException(ErrorCode.NOT_PARTICIPANT);
         }

@@ -98,7 +98,8 @@ class SchemaContractTest {
                     Map.entry("pieces_placed", "int|NO|0"),
                     Map.entry("attack_sent", "int|NO|0"),
                     Map.entry("attack_received", "int|NO|0"),
-                    Map.entry("max_combo", "int|NO|0")));
+                    Map.entry("max_combo", "int|NO|0"),
+                    Map.entry("placement", "tinyint|YES|null")));
 
     @Test
     void 테이블별_컬럼_타입_NULL_기본값이_ERD와_같다() {

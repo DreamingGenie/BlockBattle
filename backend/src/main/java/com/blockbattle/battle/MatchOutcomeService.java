@@ -8,6 +8,7 @@ import com.blockbattle.realtime.RoomEventPublisher;
 import com.blockbattle.room.RoomRepository;
 import com.blockbattle.room.RoundStarter;
 import com.blockbattle.store.redis.DisconnectTimerStore;
+import com.blockbattle.store.redis.MatchStateStore;
 import com.blockbattle.store.redis.RoomPlayer;
 import com.blockbattle.store.redis.RoomStateStore;
 import com.blockbattle.user.UserRepository;
@@ -15,9 +16,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -48,13 +52,14 @@ public class MatchOutcomeService {
     private final TransactionTemplate tx;
     private final Clock clock;
     private final KeyPressTracker keyPresses;
+    private final MatchStateStore matchState;
     /** 방별 마지막 GAME_OVER payload — 끊김으로 시리즈가 끝날 때 다시 보낸다(단일 서버 기준) */
     private final Map<String, Map<String, Object>> lastGameOver = new ConcurrentHashMap<>();
 
     public MatchOutcomeService(MatchRepository matches, RoomRepository roomRepository, UserRepository users,
                                PlayerStateRepository states, RoomStateStore rooms, DisconnectTimerStore timers,
                                RoomEventPublisher events, RoundStarter roundStarter, BattleScheduler scheduler,
-                               TransactionTemplate tx, Clock clock, KeyPressTracker keyPresses) {
+                               TransactionTemplate tx, Clock clock, KeyPressTracker keyPresses, MatchStateStore matchState) {
         this.matches = matches;
         this.roomRepository = roomRepository;
         this.users = users;
@@ -67,38 +72,107 @@ public class MatchOutcomeService {
         this.tx = tx;
         this.clock = clock;
         this.keyPresses = keyPresses;
+        this.matchState = matchState;
+        Arrays.setAll(eliminationLocks, i -> new Object());
     }
 
     static int winsNeeded(int roundCount) {
         return roundCount == 3 ? 2 : 1;
     }
 
-    /** loserId: TOP_OUT·LEFT·DISCONNECT에서 진 사람. DRAW·ABORTED는 null. 이미 끝난 경기면 false */
-    public boolean finish(String code, long matchId, Reason reason, Long loserId) {
+    /** 경기별 탈락 판정 잠금. topout·퇴장·끊김이 동시에 와도 남은 인원을 한 번씩만 센다(고정 칸 수라 쌓이지 않는다) */
+    static final int LOCK_STRIPES = 1024;
+    private final Object[] eliminationLocks = new Object[LOCK_STRIPES];
+
+    private Object lockOf(long matchId) {
+        return eliminationLocks[Math.floorMod(Long.hashCode(matchId), LOCK_STRIPES)];
+    }
+
+    /**
+     * 탈락(최대 4인 친구 대전, 2026-11-19). 아직 남은 참가자 가운데 outIds를 함께 탈락시킨다.
+     * 남은 인원이 n이고 k명이 함께 나가면 모두 n − k + 1등이다. 남은 사람이 2명 이상이면 PLAYER_OUT을 보내고 경기를 이어 가고,
+     * 1명이면 그 사람이 1등으로 경기를 끝내고, 아무도 안 남으면(마지막 사람들이 함께 나감) 무승부로 끝낸다.
+     * 2인 경기에서는 예전 판정(먼저 낸 쪽 패배, 함께 나가면 무승부)과 같다. 이미 탈락했거나 끝난 경기면 false
+     */
+    public boolean eliminate(String code, long matchId, Collection<Long> outIds, Reason reason) {
         var match = matches.findFriendMatch(matchId).orElse(null);
         if (match == null) return false;
+        Set<Long> participants = match.slots().keySet();
+        synchronized (lockOf(matchId)) {
+            Map<Long, Integer> placed = matchState.getPlacements(matchId, participants);
+            List<Long> alive = participants.stream().filter(id -> !placed.containsKey(id)).toList();
+            List<Long> out = alive.stream().filter(outIds::contains).toList();
+            if (out.isEmpty()) return false;
+            int placement = alive.size() - out.size() + 1;
+            out.forEach(id -> {
+                matchState.putPlacement(matchId, id, placement);
+                // 퇴장·끊김으로 탈락한 사람도 topoutAt을 남겨, 다시 붙어 보내는 lock·topout을 무시하고 공격 대상에서 뺀다
+                PlayerState s = states.load(matchId, id);
+                if (s.topoutAt() == null) {
+                    states.save(matchId, id, new PlayerState(s.board(), s.seq(), s.pieceIndex(), s.hold(), s.holdUsed(),
+                            s.pending(), s.combo(), s.b2b(), s.score(), s.linesCleared(), s.level(), s.piecesPlaced(),
+                            s.attackSent(), s.attackReceived(), s.maxCombo(), clock.millis()));
+                }
+            });
+            List<Long> remaining = alive.stream().filter(id -> !out.contains(id)).toList();
+            if (remaining.size() >= 2) {
+                out.forEach(id -> events.publish(code, "PLAYER_OUT",
+                        Map.of("userId", id, "placement", placement, "reason", reason.name())));
+                return true;
+            }
+            Map<Long, Integer> placements = new LinkedHashMap<>(placed);
+            out.forEach(id -> placements.put(id, placement));
+            Long winnerId = remaining.isEmpty() ? null : remaining.get(0);
+            if (winnerId != null) {
+                placements.put(winnerId, 1);
+                matchState.putPlacement(matchId, winnerId, 1);
+            }
+            return finish(code, match, winnerId == null ? Reason.DRAW : reason, winnerId, placements);
+        }
+    }
+
+    /** 남은 사람이 모두 끊겨 받을 사람이 없다: 승자 없이 ABORTED(전적은 바꾸지 않는다) */
+    public boolean abort(String code, long matchId) {
+        var match = matches.findFriendMatch(matchId).orElse(null);
+        if (match == null) return false;
+        synchronized (lockOf(matchId)) {
+            return finish(code, match, Reason.ABORTED, null, Map.of());
+        }
+    }
+
+    /** winnerId: 마지막까지 남은 사람(무승부·ABORTED는 null). placements: 참가자별 등수(ABORTED는 비어 있다). 이미 끝난 경기면 false */
+    private boolean finish(String code, MatchRepository.FriendMatch match, Reason reason, Long winnerId,
+                           Map<Long, Integer> placements) {
+        long matchId = match.id();
         Map<String, String> room = rooms.getRoom(code);
         int roundCount = Integer.parseInt(room.getOrDefault("roundCount", "1"));
-        Long winnerId = loserId == null ? null
-                : match.slots().keySet().stream().filter(id -> !id.equals(loserId)).findFirst().orElse(null);
         boolean aborted = reason == Reason.ABORTED;
-        // 시리즈 승자: 이번 승리로 필요한 승수에 닿거나, 시리즈 도중 나간 경우 남은 쪽(BR-03)
+        // 3~4인은 1판만 한다(2026-11-19). 2인은 시리즈 승자: 이번 승리로 필요한 승수에 닿거나, 시리즈 도중 나간 경우 남은 쪽(BR-03)
+        boolean multi = match.slots().size() > 2;
         int winnerWins = winnerId == null ? 0
                 : Integer.parseInt(room.getOrDefault(RoomStateStore.WINS_FIELD_PREFIX + winnerId, "0")) + 1;
-        Long seriesWinnerId = winnerId != null && (reason == Reason.LEFT || winnerWins >= winsNeeded(roundCount))
-                ? winnerId : null;
+        Long seriesWinnerId = multi ? winnerId
+                : winnerId != null && (reason == Reason.LEFT || winnerWins >= winsNeeded(roundCount)) ? winnerId : null;
+        boolean seriesOver = multi || seriesWinnerId != null;
+        // 무승부에서 함께 마지막까지 남았던 사람(가장 좋은 등수)은 NONE, 그보다 먼저 탈락한 사람은 LOSE
+        int best = placements.values().stream().min(Integer::compare).orElse(0);
         Instant now = clock.instant();
         int durationMs = (int) Math.max(0, Duration.between(match.startedAt(), now).toMillis());
         Map<Long, PlayerState> finalStates = new LinkedHashMap<>();
         match.slots().keySet().forEach(id -> finalStates.put(id, states.load(matchId, id)));
         // 봇 의심(T-41): 서버가 잰 라운드 시간 기준 초당 블록 수, lock과 함께 온 실제 키 입력 수로 판정한다(BotCheck 바로 차단 조건).
-        // 한쪽이라도 의심이면 이번 라운드는 양쪽 전적에 넣지 않고 ranked = false로 남긴다(소명 검토용). 시리즈 진행은 그대로 둔다.
+        // 한 사람이라도 의심이면 이번 라운드는 모두의 전적에 넣지 않고 ranked = false로 남긴다(소명 검토용). 시리즈 진행은 그대로 둔다.
         List<Long> botSuspects = new ArrayList<>();
         finalStates.forEach((id, s) -> {
             if (BotCheck.judge(s.piecesPlaced(), durationMs, keyPresses.get(matchId, id), null).hard()) botSuspects.add(id);
         });
         keyPresses.clear(matchId, match.slots().keySet());
         boolean bot = !botSuspects.isEmpty();
+
+        Map<Long, String> results = new LinkedHashMap<>();
+        match.slots().keySet().forEach(id -> results.put(id, aborted ? "NONE"
+                : winnerId != null ? (winnerId.equals(id) ? "WIN" : "LOSE")
+                : placements.getOrDefault(id, best) == best ? "NONE" : "LOSE"));
 
         Boolean changed = tx.execute(status -> {
             if (!matches.finishFriend(matchId, aborted ? "ABORTED" : "FINISHED",
@@ -107,14 +181,15 @@ public class MatchOutcomeService {
             }
             match.slots().forEach((userId, slot) -> {
                 PlayerState s = finalStates.get(userId);
-                String result = winnerId == null ? "NONE" : winnerId.equals(userId) ? "WIN" : "LOSE";
-                matches.updatePlayer(matchId, slot, result, new PlayerStats(s.score(), s.linesCleared(), s.level(),
+                matches.updatePlayer(matchId, slot, results.get(userId), new PlayerStats(s.score(), s.linesCleared(), s.level(),
                         s.piecesPlaced(), s.attackSent(), s.attackReceived(), s.maxCombo()));
+                Integer placement = placements.get(userId);
+                if (placement != null) matches.setPlacement(matchId, slot, placement);
             });
             if (bot) matches.setRanked(matchId, false);
-            if (!aborted && winnerId != null && !bot) { // 무승부·ABORTED·NONE·봇 의심은 전적을 바꾸지 않는다(BR-09, T-41)
-                users.recordFriendResult(winnerId, true, now);
-                users.recordFriendResult(loserId, false, now);
+            // 1위만 승, 나머지는 패(2026-11-19). 무승부·ABORTED·봇 의심은 전적을 바꾸지 않는다(BR-09, T-41)
+            if (!aborted && winnerId != null && !bot) {
+                results.forEach((userId, result) -> users.recordFriendResult(userId, "WIN".equals(result), now));
             }
             return true;
         });
@@ -125,7 +200,7 @@ public class MatchOutcomeService {
         if (winnerId != null) rooms.incrementWins(code, winnerId);
         rooms.putRoomFields(code, Map.of("currentMatchId", ""));
         Long nextRoundStartsAt = null;
-        if (seriesWinnerId != null) {
+        if (seriesOver) {
             finishSeries(code, match.roomId());
         } else {
             // 시리즈가 남았다: 승자가 있으면 다음 라운드, 무승부·ABORTED면 같은 라운드 재시도(attempt + 1)
@@ -139,7 +214,7 @@ public class MatchOutcomeService {
             scheduler.after(Duration.ofMillis(BETWEEN_ROUNDS_MS - RoundStarter.COUNTDOWN_MS),
                     () -> startNextRound(code, match.roomId(), seriesNo, nextRound, nextAttempt, startsAt));
         }
-        if (aborted) return true; // 양쪽 모두 끊겨 받을 사람이 없다(T-13 계획 unlinked)
+        if (aborted) return true; // 모두 끊겨 받을 사람이 없다(T-13 계획 unlinked)
 
         Map<String, Object> seriesWins = new LinkedHashMap<>();
         Map<String, String> after = rooms.getRoom(code);
@@ -164,6 +239,9 @@ public class MatchOutcomeService {
         payload.put("seriesWinnerUserId", seriesWinnerId);
         payload.put("nextRoundStartsAt", nextRoundStartsAt);
         payload.put("stats", stats);
+        Map<String, Integer> placementView = new LinkedHashMap<>();
+        placements.forEach((id, place) -> placementView.put(Long.toString(id), place));
+        payload.put("placements", placementView);
         payload.put("botSuspectedUserIds", botSuspects);
         // 다음 라운드 예약(startNextRound)만 다시 읽으므로 그때까지만 둔다. 시리즈가 끝났으면 남기지 않는다(보안 점검 L-8)
         if (nextRoundStartsAt != null) lastGameOver.put(code, payload);

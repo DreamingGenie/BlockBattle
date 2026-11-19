@@ -18,6 +18,9 @@ interface MatchPage {
     myResult: 'WIN' | 'LOSE' | 'NONE';
     myScore: number;
     opponent: { playerType: 'USER' | 'AI'; userId: number | null; nickname: string | null; tag: string | null; aiDifficulty: string | null } | null;
+    /** 참가자 수(다인 친구 대전은 3~4)와 내 등수(친구 대전만, 옛 경기는 null) */
+    playerCount?: number;
+    myPlacement?: number | null;
   }[];
   page: number;
   size: number;
@@ -171,10 +174,11 @@ export function RecordsScreen() {
                         ? '-'
                         : m.opponent.playerType === 'AI'
                           ? `AI (${difficultyLabel(m.opponent.aiDifficulty ?? '')})`
-                          : `${m.opponent.nickname}#${m.opponent.tag}`}
+                          : `${m.opponent.nickname}#${m.opponent.tag}${(m.playerCount ?? 2) > 2 ? ` 외 ${(m.playerCount ?? 2) - 2}명` : ''}`}
                     </td>
                     <td>
                       <ResultBadge result={m.status === 'ABORTED' ? 'ABORTED' : m.myResult} />
+                      {(m.playerCount ?? 2) > 2 && m.myPlacement != null && <span className="badge">{m.myPlacement}위</span>}
                     </td>
                     <td className="num strong">{m.myScore.toLocaleString()}</td>
                     <td className="num">{formatDuration(m.durationMs)}</td>

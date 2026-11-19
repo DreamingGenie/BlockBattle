@@ -44,7 +44,8 @@ public class ReadyService {
         rooms.touch(code);
 
         Map<Long, RoomPlayer> players = rooms.getPlayers(code);
-        boolean allReady = players.size() == RoomService.CAPACITY && players.values().stream().allMatch(RoomPlayer::ready);
+        // 2명 이상이 모두 준비하면 시작한다. 방장 화면의 준비 버튼은 "시작"이라, 다른 사람이 모두 준비한 뒤에만 눌린다(다인 대전 2026-11-19)
+        boolean allReady = players.size() >= 2 && players.values().stream().allMatch(RoomPlayer::ready);
         if (allReady && rooms.compareAndSetStatus(code, "WAITING", "PLAYING")) {
             startCountdown(code, rooms.getRoom(code));
         }

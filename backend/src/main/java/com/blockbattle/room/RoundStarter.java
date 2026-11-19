@@ -7,6 +7,7 @@ import com.blockbattle.store.redis.RoomStateStore;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -44,8 +45,9 @@ public class RoundStarter {
 
         long matchId = matches.insertFriendMatch(roomId, seriesNo, roundNo, attemptNo, seed, startsAt);
         matches.insertPlayer(matchId, 1, hostId, "USER");
-        players.keySet().stream().filter(id -> id != hostId).findFirst()
-                .ifPresent(guestId -> matches.insertPlayer(matchId, 2, guestId, "USER"));
+        // 방장이 1번, 나머지는 userId 순으로 2번부터(다인 대전 2026-11-19)
+        List<Long> others = players.keySet().stream().filter(id -> id != hostId).sorted().toList();
+        for (int i = 0; i < others.size(); i++) matches.insertPlayer(matchId, i + 2, others.get(i), "USER");
         roomRepository.updateStatus(roomId, "PLAYING");
         rooms.putRoomFields(code, Map.of("currentMatchId", Long.toString(matchId), "seriesNo", Integer.toString(seriesNo),
                 "roundNo", Integer.toString(roundNo), "attemptNo", Integer.toString(attemptNo)));

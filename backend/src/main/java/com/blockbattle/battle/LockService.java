@@ -7,6 +7,7 @@ import com.blockbattle.engine.Piece;
 import com.blockbattle.engine.PieceSequence;
 import com.blockbattle.engine.Placement;
 import com.blockbattle.realtime.RoomEventPublisher;
+import com.blockbattle.store.redis.MatchStateStore;
 import com.blockbattle.store.redis.RoomStateStore;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -50,6 +51,7 @@ public class LockService {
     private final BattleScheduler scheduler;
     private final Clock clock;
     private final KeyPressTracker keyPresses;
+    private final MatchStateStore matchState;
     private final SecureRandom random = new SecureRandom();
     /**
      * 경기별 순서 잠금. 경기마다 객체를 만들어 맵에 두면 끝난 경기가 쌓이므로(보안 점검 L-8) 고정 개수로 나눠 쓴다.
@@ -68,7 +70,7 @@ public class LockService {
 
     public LockService(RoomStateStore rooms, PlayerStateRepository states, RoomEventPublisher events,
                        SimpMessagingTemplate messaging, JdbcTemplate jdbc, MatchOutcomeService outcomes,
-                       BattleScheduler scheduler, Clock clock, KeyPressTracker keyPresses) {
+                       BattleScheduler scheduler, Clock clock, KeyPressTracker keyPresses, MatchStateStore matchState) {
         this.rooms = rooms;
         this.states = states;
         this.events = events;
@@ -78,6 +80,7 @@ public class LockService {
         this.scheduler = scheduler;
         this.clock = clock;
         this.keyPresses = keyPresses;
+        this.matchState = matchState;
         Arrays.setAll(matchLocks, i -> new Object());
     }
 
@@ -127,17 +130,20 @@ public class LockService {
                 clock.millis());
     }
 
+    /**
+     * topout 100ms 뒤(BR-04): 나와, 내 topout 뒤 100ms 안에 topout한 사람을 함께 탈락시킨다(같은 등수).
+     * 나보다 먼저 topout한 사람은 이미 자기 판정에서 탈락했다. 2인이면 예전처럼 먼저 낸 쪽 패배, 100ms 안이면 무승부다.
+     */
     private void decideTopout(String code, long matchId, long userId) {
-        PlayerState me = states.load(matchId, userId);
-        long opponentId = rooms.getPlayers(code).keySet().stream().filter(id -> id != userId).findFirst().orElse(-1L);
-        Long oppAt = opponentId > 0 ? states.load(matchId, opponentId).topoutAt() : null;
-        if (oppAt != null && Math.abs(oppAt - me.topoutAt()) <= DRAW_WINDOW.toMillis()) {
-            outcomes.finish(code, matchId, MatchOutcomeService.Reason.DRAW, null);
-        } else if (oppAt != null && oppAt < me.topoutAt()) {
-            outcomes.finish(code, matchId, MatchOutcomeService.Reason.TOP_OUT, opponentId);
-        } else {
-            outcomes.finish(code, matchId, MatchOutcomeService.Reason.TOP_OUT, userId);
+        Long mine = states.load(matchId, userId).topoutAt();
+        if (mine == null) return;
+        List<Long> group = new ArrayList<>(List.of(userId));
+        for (long id : rooms.getPlayers(code).keySet()) {
+            if (id == userId) continue;
+            Long at = states.load(matchId, id).topoutAt();
+            if (at != null && at <= mine + DRAW_WINDOW.toMillis()) group.add(id);
         }
+        outcomes.eliminate(code, matchId, group, MatchOutcomeService.Reason.TOP_OUT);
     }
 
     public void handle(String code, long userId, LockMessage msg) {
@@ -145,7 +151,7 @@ public class LockService {
         String current = room.get("currentMatchId");
         if (!"PLAYING".equals(room.get("status")) || current == null || current.isBlank()) return;
         long matchId = Long.parseLong(current);
-        long opponentId = rooms.getPlayers(code).keySet().stream().filter(id -> id != userId).findFirst().orElse(-1L);
+        List<Long> others = rooms.getPlayers(code).keySet().stream().filter(id -> id != userId).toList();
 
         // 같은 경기의 lock과 공격 반영은 순서대로(단일 서버 기준, T-12 계획 unlinked)
         boolean toppedOut;
@@ -178,9 +184,20 @@ public class LockService {
             events.publish(code, "BOARD", board);
 
             int sent = outcome.result().sent();
-            if (sent > 0 && opponentId > 0) {
+            // 공격은 아직 남은 상대 중 무작위 한 명에게 간다(다인 대전 2026-11-19, 2인이면 늘 그 상대)
+            Map<Long, Integer> out = sent > 0 ? matchState.getPlacements(matchId, others) : Map.of();
+            Map<Long, PlayerState> targets = new LinkedHashMap<>();
+            if (sent > 0) {
+                for (long id : others) {
+                    if (out.containsKey(id)) continue;
+                    PlayerState s = states.load(matchId, id);
+                    if (s.topoutAt() == null) targets.put(id, s);
+                }
+            }
+            if (!targets.isEmpty()) {
+                long opponentId = new ArrayList<>(targets.keySet()).get(random.nextInt(targets.size()));
                 int hole = random.nextInt(Board.WIDTH); // 묶음마다 구멍 열을 서버가 무작위로(GR-08)
-                PlayerState opp = states.load(matchId, opponentId);
+                PlayerState opp = targets.get(opponentId);
                 List<GarbageBundle> pending = new ArrayList<>(opp.pending());
                 pending.add(new GarbageBundle(sent, hole));
                 states.save(matchId, opponentId, new PlayerState(opp.board(), opp.seq(), opp.pieceIndex(), opp.hold(),

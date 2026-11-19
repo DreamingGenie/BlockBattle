@@ -3,11 +3,13 @@ package com.blockbattle.battle;
 import com.blockbattle.realtime.RoomEventPublisher;
 import com.blockbattle.realtime.RoomEventPublisher.WsMessage;
 import com.blockbattle.store.redis.DisconnectTimerStore;
+import com.blockbattle.store.redis.MatchStateStore;
 import com.blockbattle.store.redis.RoomPlayer;
 import com.blockbattle.store.redis.RoomStateStore;
 import java.security.Principal;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,11 +44,12 @@ public class ConnectionEvents {
     private final BattleScheduler scheduler;
     private final Clock clock;
     private final LockService locks;
+    private final MatchStateStore matchState;
     private final Map<Long, Set<String>> openSessions = new ConcurrentHashMap<>();
 
     public ConnectionEvents(RoomStateStore rooms, DisconnectTimerStore timers, PlayerStateRepository states,
                             RoomEventPublisher events, SimpMessagingTemplate messaging, MatchOutcomeService outcomes,
-                            BattleScheduler scheduler, Clock clock, LockService locks) {
+                            BattleScheduler scheduler, Clock clock, LockService locks, MatchStateStore matchState) {
         this.rooms = rooms;
         this.timers = timers;
         this.states = states;
@@ -56,6 +59,7 @@ public class ConnectionEvents {
         this.scheduler = scheduler;
         this.clock = clock;
         this.locks = locks;
+        this.matchState = matchState;
     }
 
     private record Playing(String code, long matchId) {
@@ -110,24 +114,31 @@ public class ConnectionEvents {
         rooms.putPlayer(code, userId, new RoomPlayer(me.nickname(), me.tag(), me.ready(), false, me.rematch()));
         Playing p = playing(userId);
         if (p == null) return; // 대기 중 끊김은 표시만 바꾼다(유예·패배는 경기 중에만, BR-06)
+        // 이미 탈락해 구경하던 사람(다인 대전)은 유예를 시작하지 않는다
+        if (matchState.getPlacements(p.matchId(), List.of(userId)).containsKey(userId)) return;
         timers.start(p.matchId(), userId);
         events.publish(p.code(), "PLAYER_LEFT", Map.of("userId", userId, "reason", "DISCONNECTED"));
         scheduler.after(GRACE, () -> expire(p.code(), p.matchId(), userId));
     }
 
-    /** 10초 뒤: 아직 끊겨 있으면 DISCONNECT 패배, 상대도 끊겨 있으면 ABORTED */
+    /**
+     * 10초 뒤: 아직 끊겨 있으면 DISCONNECT로 탈락(2인이면 패배). 아직 남은 다른 사람도 모두 끊겨 있으면 ABORTED.
+     * 이미 탈락해 구경하던 사람이 끊긴 것은 경기에 영향이 없다.
+     */
     void expire(String code, long matchId, long userId) {
         if (!Long.toString(matchId).equals(rooms.getRoom(code).get("currentMatchId"))) return;
         Map<Long, RoomPlayer> players = rooms.getPlayers(code);
         RoomPlayer me = players.get(userId);
         if (me == null || me.connected()) return;
-        boolean opponentAlsoGone = players.entrySet().stream()
-                .filter(e -> e.getKey() != userId)
+        Map<Long, Integer> out = matchState.getPlacements(matchId, players.keySet());
+        if (out.containsKey(userId)) return;
+        boolean othersAlsoGone = players.entrySet().stream()
+                .filter(e -> e.getKey() != userId && !out.containsKey(e.getKey()))
                 .allMatch(e -> !e.getValue().connected());
-        if (opponentAlsoGone) {
-            outcomes.finish(code, matchId, MatchOutcomeService.Reason.ABORTED, null);
+        if (othersAlsoGone) {
+            outcomes.abort(code, matchId);
         } else {
-            outcomes.finish(code, matchId, MatchOutcomeService.Reason.DISCONNECT, userId);
+            outcomes.eliminate(code, matchId, List.of(userId), MatchOutcomeService.Reason.DISCONNECT);
         }
     }
 
@@ -143,7 +154,8 @@ public class ConnectionEvents {
         Playing p = playing(userId);
         if (p == null) return;
         PlayerState me = states.load(p.matchId(), userId);
-        long opponentId = rooms.getPlayers(p.code()).keySet().stream().filter(id -> id != userId).findFirst().orElse(-1L);
+        List<Long> others = rooms.getPlayers(p.code()).keySet().stream().filter(id -> id != userId).toList();
+        Map<Long, Integer> out = matchState.getPlacements(p.matchId(), others);
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("matchId", p.matchId());
         payload.put("seq", me.seq());
@@ -152,10 +164,15 @@ public class ConnectionEvents {
         payload.put("holdUsed", me.holdUsed());
         payload.put("board", me.board().toString());
         payload.put("pendingGarbage", List.copyOf(me.pending()));
-        if (opponentId > 0) {
-            PlayerState opp = states.load(p.matchId(), opponentId);
-            payload.put("opponent", Map.of("userId", opponentId, "board", opp.board().toString(), "score", opp.score()));
+        // 상대 전부(다인 대전). out은 이미 탈락했거나 topout한 사람. opponent는 첫 상대(2인 화면 호환)
+        List<Map<String, Object>> opponents = new ArrayList<>();
+        for (long id : others) {
+            PlayerState opp = states.load(p.matchId(), id);
+            opponents.add(Map.of("userId", id, "board", opp.board().toString(), "score", opp.score(),
+                    "out", out.containsKey(id) || opp.topoutAt() != null));
         }
+        if (!opponents.isEmpty()) payload.put("opponent", opponents.get(0));
+        payload.put("opponents", opponents);
         // POL-006: 페이지를 새로 연 클라이언트가 시드와 pieceIndex로 블록 순서를, me로 성적 표시를 되살린다
         payload.put("seed", locks.seedOf(p.matchId()));
         Map<String, Object> mine = new LinkedHashMap<>();
@@ -165,6 +182,9 @@ public class ConnectionEvents {
         mine.put("combo", me.combo());
         mine.put("b2b", me.b2b());
         payload.put("me", mine);
+        // 이미 탈락했으면 등수(다인 대전). 클라이언트는 이어 하지 않고 남은 사람들의 경기를 본다
+        Integer myPlacement = matchState.getPlacements(p.matchId(), List.of(userId)).get(userId);
+        if (myPlacement != null) payload.put("myPlacement", myPlacement);
         messaging.convertAndSendToUser(Long.toString(userId), "/queue/state",
                 new WsMessage("RESYNC", p.code(), clock.millis(), payload));
     }

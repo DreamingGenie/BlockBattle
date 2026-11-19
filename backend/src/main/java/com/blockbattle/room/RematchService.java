@@ -42,7 +42,7 @@ public class RematchService {
         if (!accept) return;
 
         Map<Long, RoomPlayer> players = rooms.getPlayers(code);
-        boolean bothAccepted = players.size() == RoomService.CAPACITY && players.values().stream().allMatch(RoomPlayer::rematch);
+        boolean bothAccepted = players.size() >= 2 && players.values().stream().allMatch(RoomPlayer::rematch); // 남은 사람 모두
         if (!bothAccepted || !rooms.compareAndSetStatus(code, "FINISHED", "PLAYING")) return;
         int seriesNo = Integer.parseInt(room.getOrDefault("seriesNo", "1")) + 1;
         Map<String, String> reset = new HashMap<>();
