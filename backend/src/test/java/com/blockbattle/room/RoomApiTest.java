@@ -108,15 +108,42 @@ class RoomApiTest {
         assertThat(data(create(guest("두리"), "{}")).get("roomCode").asText()).isEqualTo("GHJKMN");
     }
 
+    /**
+     * 2026-11-19 제보. 깨지면: 방을 만들고 시작하지 않은 채 창을 닫은 사람이 그 방이 만료되는 30분 동안
+     * 새 방을 만들거나 다른 방에 들어가지 못한다(창을 닫는 것은 퇴장이 아니라 묶임이 남는다).
+     */
     @Test
-    void 이미_활성_방에_있으면_새로_만들거나_다른_방에_들어갈_수_없다() throws Exception {
+    void 대기_중인_방에_묶여_있으면_그_방에서_나가고_새로_만들거나_다른_방에_들어간다() throws Exception {
         Player a = guest("하나");
         Player b = guest("두리");
         String roomA = data(create(a, "{}")).get("roomCode").asText();
         String roomB = data(create(b, "{}")).get("roomCode").asText();
+
+        String roomA2 = data(create(a, "{}")).get("roomCode").asText();
+        assertThat(roomA2).isNotEqualTo(roomA);
+        assertThat(redis.hasKey(RedisKeys.room(roomA))).as("혼자 있던 방은 닫힌다").isFalse();
+        assertThat(jdbc.queryForObject("SELECT status FROM game_rooms WHERE room_code = ?", String.class, roomA)).isEqualTo("CLOSED");
+
+        assertThat(join(a, roomB).getStatus()).isEqualTo(200);
+        assertThat(redis.opsForValue().get(RedisKeys.userRoom(a.userId()))).isEqualTo(roomB);
+        assertThat(redis.hasKey(RedisKeys.room(roomA2))).isFalse();
+    }
+
+    /** 깨지면: 경기 중인 방에 묶인 사람이 다른 방으로 가며 모르고 경기를 포기하거나, 돌아갈 방을 화면이 알 수 없다 */
+    @Test
+    void 경기_중인_방에_묶여_있으면_ALREADY_IN_ROOM이고_users_me에_그_방_코드가_있다() throws Exception {
+        Player a = guest("하나");
+        Player b = guest("두리");
+        String roomA = data(create(a, "{}")).get("roomCode").asText();
+        String roomB = data(create(b, "{}")).get("roomCode").asText();
+        redis.opsForHash().put(RedisKeys.room(roomA), "status", "PLAYING");
+
         expectError(create(a, "{}"), 409, "ALREADY_IN_ROOM");
         expectError(join(a, roomB), 409, "ALREADY_IN_ROOM");
         assertThat(redis.opsForValue().get(RedisKeys.userRoom(a.userId()))).isEqualTo(roomA);
+        JsonNode me = json.readTree(mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + a.token()))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8)).get("data");
+        assertThat(me.get("currentRoomCode").asText()).isEqualTo(roomA);
     }
 
     @Test
