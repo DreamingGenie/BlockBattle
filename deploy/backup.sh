@@ -37,8 +37,10 @@ sudo docker compose exec -T redis redis-cli SAVE </dev/null >/dev/null
 sudo docker compose cp redis:/data/dump.rdb "$B/redis-dump.rdb" </dev/null
 
 cp .env "$B/env"
-(cd "$B" && sha256sum mysql-block_battle.sql.gz redis-dump.rdb env row-counts.txt > SHA256SUMS)
+# docker compose cp로 꺼낸 파일은 root 소유라 체크섬·tar보다 먼저 소유자를 바꾼다
 sudo chown -R ubuntu "$B"
+chmod -R u+rw "$B"
+(cd "$B" && sha256sum mysql-block_battle.sql.gz redis-dump.rdb env row-counts.txt > SHA256SUMS)
 tar -czf /tmp/block-battle-backup.tgz -C /tmp block-battle-backup
 REMOTE
 
