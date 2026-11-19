@@ -283,7 +283,7 @@ difficulty는 VERY_EASY·EASY·NORMAL·HARD·IMPOSSIBLE이다(T-35, T-41). board
 
 rotation은 SRS 상태 0·R·2·L을 0~3으로, x는 블록 기준점의 열(왼쪽 0)이다. inputs 값은 LEFT, RIGHT, CW, CCW, SOFT_DROP, HARD_DROP, HOLD다.
 
-오류: INVALID_BOARD(400, 22 × 10이 아니거나 0·1 밖의 값), UNAUTHORIZED(401)
+오류: INVALID_BOARD(400, 22 × 10이 아니거나 0·1 밖의 값), UNAUTHORIZED(401), AI_BUSY(503, 동시 계산 상한을 넘음 — FE는 규칙 AI로 대신 둔다)
 
 ### 4.2 GET /health — 상태 확인
 
@@ -402,5 +402,6 @@ seed는 경기 시드(COUNTDOWN과 같은 값), me는 서버 진행 상태 원�
 | ACCOUNT_ALREADY_LINKED | 409 | 이미 카카오가 연결된 계정 |
 | INVALID_LOCK | - (WS) | 서버 검증·재계산과 맞지 않는 lock |
 | INTERNAL_ERROR | 500 | 서버 오류 |
+| AI_BUSY | 503 | AI 서버의 동시 계산 상한을 넘음(보안 점검 M-1) |
 
 NOT_FOUND·METHOD_NOT_ALLOWED는 요청이 정의된 API에 닿지 못한 경우에만 쓰고 서버 오류로 기록하지 않는다. 정의된 API 안에서 자원을 찾지 못한 경우는 ROOM_NOT_FOUND·MATCH_NOT_FOUND·KAKAO_NOT_LINKED를 그대로 쓴다. Access 토큰이 필요한 /api/v1 아래 경로는 인증 검사가 먼저라, 토큰이 없거나 위조면 경로와 상관없이 UNAUTHORIZED(401)가 나간다(POL-026).

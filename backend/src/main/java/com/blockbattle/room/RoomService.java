@@ -137,6 +137,7 @@ public class RoomService {
         }
         rooms.removePlayer(code, userId);
         rooms.unbindUserRoom(userId);
+        events.unsubscribe(code, userId); // 나간 사람은 이 방 방송을 더 받지 않는다(보안 점검 H-2 잔여)
         if (players.size() <= 1) {
             closeRoom(code, roomId, "EMPTY");
             return;

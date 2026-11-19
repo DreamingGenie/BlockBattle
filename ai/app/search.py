@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import random
+import time
 from collections import deque
 from dataclasses import dataclass
 
@@ -126,7 +127,10 @@ def step_bonus(p: Placement, pending_garbage: int, tspin_search: bool) -> float:
 
 
 def choose(board: rules.Board, difficulty: str, current: str, hold: str | None, can_hold: bool,
-           next_pieces: list[str], pending_garbage: int, rng: random.Random | None = None) -> Move | None:
+           next_pieces: list[str], pending_garbage: int, rng: random.Random | None = None,
+           deadline: float | None = None) -> Move | None:
+    """deadline(time.perf_counter 값)이 지나면 2수 탐색을 멈추고 그때까지 펼친 후보 안에서 고른다(보안 점검 M-1).
+    후보는 1수 평가 순으로 펼치므로, 하나만 펼쳤을 때의 결과는 1수 탐색과 같다."""
     hard = difficulty == "IMPOSSIBLE"
     depth = 1 if difficulty in ("VERY_EASY", "EASY", "NORMAL") else 2
     if difficulty == "VERY_EASY":
@@ -154,6 +158,8 @@ def choose(board: rules.Board, difficulty: str, current: str, hold: str | None, 
         beam = sorted(first_moves, key=lambda m: (-m[0], m[1]))[:BEAM]
         rescored = []
         for score, idx, use_hold, p, following in beam:
+            if deadline is not None and rescored and time.perf_counter() > deadline:
+                break
             total = score
             if following is not None:
                 seconds = placements(list(p.board_after), following, allow_soft_drop=hard)

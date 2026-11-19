@@ -222,6 +222,44 @@ class StompRoomTest {
         assertThat(topic.poll(700, TimeUnit.MILLISECONDS)).as("COUNTDOWN은 한 번만").isNull();
     }
 
+    /** 보안 점검 M-2. 깨지면: 서버가 하트비트를 보내지도 기대하지도 않아, TCP close 없이 사라진 연결의 끊김 유예·판정이 시작되지 않는다 */
+    @Test
+    void CONNECTED에_서버_하트비트_10초_25초를_알린다() throws Exception {
+        Player p = guest("오션");
+        CompletableFuture<StompHeaders> connected = new CompletableFuture<>();
+        StompHeaders connect = new StompHeaders();
+        connect.add("Authorization", "Bearer " + p.token());
+        sessions.add(client.connectAsync("ws://localhost:" + port + "/ws", new WebSocketHttpHeaders(), connect,
+                new StompSessionHandlerAdapter() {
+                    @Override
+                    public void afterConnected(StompSession session, StompHeaders headers) {
+                        connected.complete(headers);
+                    }
+                }).get(5, TimeUnit.SECONDS));
+        assertThat(connected.get(5, TimeUnit.SECONDS).getHeartbeat()).containsExactly(10_000L, 25_000L);
+    }
+
+    /** 보안 점검 H-2 잔여. 깨지면: 방을 나간 사람이 구독을 유지한 채 그 방의 보드·준비·결과 방송을 계속 받는다 */
+    @Test
+    void 방을_나가면_그_방_구독이_지워져_이후_방송을_받지_않는다() throws Exception {
+        Player host = guest("오션");
+        Player guest = guest("민수");
+        String code = createRoom(host);
+        joinRoom(guest, code);
+        StompSession hostSession = connect(host);
+        BlockingQueue<JsonNode> hostTopic = subscribe(hostSession, "/topic/rooms/" + code);
+        StompSession guestSession = connect(guest);
+        BlockingQueue<JsonNode> guestTopic = subscribe(guestSession, "/topic/rooms/" + code);
+
+        mvc.perform(post("/api/v1/rooms/" + code + "/leave").header("Authorization", "Bearer " + guest.token()));
+        assertThat(nextOfType(hostTopic, "PLAYER_LEFT").at("/payload/userId").asLong()).isEqualTo(guest.userId());
+
+        hostSession.send("/app/rooms/" + code + "/ready", Map.of("ready", true));
+        nextOfType(hostTopic, "READY_CHANGED");
+        assertThat(guestTopic.poll(500, TimeUnit.MILLISECONDS)).as("나간 뒤의 방송은 오지 않는다").isNull();
+        assertThat(guestSession.isConnected()).as("연결 자체는 유지한다").isTrue();
+    }
+
     private JsonNode nextOfType(BlockingQueue<JsonNode> queue, String type) throws InterruptedException {
         long deadline = System.currentTimeMillis() + 5000;
         while (System.currentTimeMillis() < deadline) {

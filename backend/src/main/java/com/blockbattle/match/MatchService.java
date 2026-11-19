@@ -84,8 +84,11 @@ public class MatchService {
         boolean bot = verdict.bot(softEnforce);
         boolean ranked = !bot && ResultLimits.withinLimits(p.score(), p.linesCleared(), p.level(), p.piecesPlaced(), received,
                 p.maxCombo(), input.durationMs(), serverElapsedMs);
-
         boolean win = "WIN".equals(input.result());
+        if (aiMode && ranked) {
+            ranked = ResultLimits.aiResultPlausible(win, input.ai().piecesPlaced(), input.ai().attackReceived(), serverElapsedMs);
+        }
+
         matches.finish(matchId, now, input.durationMs(), ranked, aiMode && win ? userId : null);
         matches.saveInputStats(matchId, input.keyPresses(), input.inputStats(), verdict);
         matches.updatePlayer(matchId, 1, aiMode ? input.result() : "NONE", toRow(p));
@@ -95,7 +98,8 @@ public class MatchService {
             if (aiMode) matches.updatePlayer(matchId, 2, win ? "LOSE" : "WIN", toRow(input.ai()));
         } else if (aiMode) {
             matches.updatePlayer(matchId, 2, win ? "LOSE" : "WIN", toRow(input.ai()));
-            users.recordAiResult(userId, win, now);
+            // 상한을 어긴 결과는 경기 행만 남기고 AI 전적에는 넣지 않는다(보안 점검 L-6, 싱글의 최고 점수와 같은 규칙)
+            if (ranked) users.recordAiResult(userId, win, now);
         } else {
             users.incrementSoloGames(userId, now);
             newBest = ranked && users.raiseSoloBest(userId, p.score(), now);

@@ -75,8 +75,12 @@ public class ConnectionEvents {
     public void onConnected(SessionConnectedEvent event) {
         Long userId = userId(event.getUser());
         if (userId == null) return;
-        openSessions.computeIfAbsent(userId, id -> ConcurrentHashMap.newKeySet())
-                .add(StompHeaderAccessor.wrap(event.getMessage()).getSessionId());
+        String sessionId = StompHeaderAccessor.wrap(event.getMessage()).getSessionId();
+        openSessions.compute(userId, (id, set) -> { // 끊김 쪽의 제거와 겹쳐도 빠지지 않게 원자적으로 더한다
+            Set<String> sessions = set != null ? set : ConcurrentHashMap.newKeySet();
+            sessions.add(sessionId);
+            return sessions;
+        });
         // REST 입장 직후 connected=false로 시작하므로 STOMP 연결 때 true로 바꾼다. 경기 중이면 끊겼다가 다시 붙은 것이다
         String code = rooms.findUserRoom(userId).orElse(null);
         if (code == null) return;
@@ -93,11 +97,12 @@ public class ConnectionEvents {
     public void onDisconnect(SessionDisconnectEvent event) {
         Long userId = userId(event.getUser());
         if (userId == null) return;
-        Set<String> open = openSessions.get(userId);
-        if (open != null) {
-            open.remove(event.getSessionId());
-            if (!open.isEmpty()) return; // 다른 세션으로 이미 다시 붙어 있다
-        }
+        // 마지막 세션이 끊기면 사용자 항목도 지운다(보안 점검 L-8)
+        Set<String> open = openSessions.computeIfPresent(userId, (id, set) -> {
+            set.remove(event.getSessionId());
+            return set.isEmpty() ? null : set;
+        });
+        if (open != null) return; // 다른 세션으로 이미 다시 붙어 있다
         String code = rooms.findUserRoom(userId).orElse(null);
         if (code == null) return;
         RoomPlayer me = rooms.getPlayers(code).get(userId);

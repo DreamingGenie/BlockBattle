@@ -28,4 +28,22 @@ public final class ResultLimits {
         if (maxCombo > pieces) return false;
         return score <= level * (lines * (1200 + 50 * maxCombo) + pieces * 400) + 40 * pieces;
     }
+
+    /**
+     * ⑦ AI 블록 수는 서버 경과 시간 안에 둘 수 있어야 한다. AI는 입력 하나에 60ms 이상(IMPOSSIBLE)이고 블록마다 입력이 하나 이상이라
+     * 블록당 50ms로 넉넉히 잡는다. 플레이 시간(클라이언트 값)이 아니라 서버 경과 시간으로 잰다.
+     */
+    static final long AI_MIN_MS_PER_PIECE = 50;
+
+    /**
+     * ⑧ 승리라면 AI가 topout할 만큼 쌓였어야 한다. 블록 하나는 가장 높은 칸을 최대 4칸, 받은 공격 줄은 1칸 올리므로
+     * 생성 자리(숨김 2행)에 닿으려면 4 × AI 블록 + AI가 받은 공격 줄 ≥ 20이어야 한다(위 2행을 빼고 넉넉히).
+     */
+    static final long AI_TOPOUT_MIN_HEIGHT = 20;
+
+    /** vs AI 결과의 AI 쪽 검사(보안 점검 L-6). 어기면 ranked = false이고 AI 전적에도 넣지 않는다 */
+    public static boolean aiResultPlausible(boolean win, long aiPieces, long aiAttackReceived, long serverElapsedMs) {
+        if (aiPieces * AI_MIN_MS_PER_PIECE > serverElapsedMs) return false;
+        return !win || aiPieces * 4 + aiAttackReceived >= AI_TOPOUT_MIN_HEIGHT;
+    }
 }

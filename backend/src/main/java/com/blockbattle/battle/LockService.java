@@ -12,10 +12,11 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -50,8 +51,20 @@ public class LockService {
     private final Clock clock;
     private final KeyPressTracker keyPresses;
     private final SecureRandom random = new SecureRandom();
-    private final Map<Long, Object> matchLocks = new ConcurrentHashMap<>();
-    private final Map<Long, Long> seeds = new ConcurrentHashMap<>();
+    /**
+     * 경기별 순서 잠금. 경기마다 객체를 만들어 맵에 두면 끝난 경기가 쌓이므로(보안 점검 L-8) 고정 개수로 나눠 쓴다.
+     * 다른 경기가 같은 칸을 쓰면 잠깐 기다릴 뿐 결과는 같다.
+     */
+    static final int LOCK_STRIPES = 1024;
+    private final Object[] matchLocks = new Object[LOCK_STRIPES];
+    /** 시드 캐시. 끝난 경기가 쌓이지 않게 최근 SEED_CACHE_SIZE개만 두고, 빠진 값은 DB에서 다시 읽는다(L-8) */
+    static final int SEED_CACHE_SIZE = 1024;
+    private final Map<Long, Long> seeds = Collections.synchronizedMap(new LinkedHashMap<Long, Long>(64, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Long, Long> eldest) {
+            return size() > SEED_CACHE_SIZE;
+        }
+    });
 
     public LockService(RoomStateStore rooms, PlayerStateRepository states, RoomEventPublisher events,
                        SimpMessagingTemplate messaging, JdbcTemplate jdbc, MatchOutcomeService outcomes,
@@ -65,6 +78,11 @@ public class LockService {
         this.scheduler = scheduler;
         this.clock = clock;
         this.keyPresses = keyPresses;
+        Arrays.setAll(matchLocks, i -> new Object());
+    }
+
+    private Object lockOf(long matchId) {
+        return matchLocks[Math.floorMod(Long.hashCode(matchId), LOCK_STRIPES)];
     }
 
     /** BR-04 동시 topout 판정 창 */
@@ -79,7 +97,7 @@ public class LockService {
         String current = room.get("currentMatchId");
         if (seq == null || !"PLAYING".equals(room.get("status")) || current == null || current.isBlank()) return;
         long matchId = Long.parseLong(current);
-        synchronized (matchLocks.computeIfAbsent(matchId, id -> new Object())) {
+        synchronized (lockOf(matchId)) {
             PlayerState me = states.load(matchId, userId);
             if (me.topoutAt() != null || seq != me.seq()) return;
             Piece next = new PieceSequence(seedOf(matchId)).at(me.pieceIndex());
@@ -112,7 +130,7 @@ public class LockService {
         long opponentId = rooms.getPlayers(code).keySet().stream().filter(id -> id != userId).findFirst().orElse(-1L);
 
         // 같은 경기의 lock과 공격 반영은 순서대로(단일 서버 기준, T-12 계획 unlinked)
-        synchronized (matchLocks.computeIfAbsent(matchId, id -> new Object())) {
+        synchronized (lockOf(matchId)) {
             PlayerState me = states.load(matchId, userId);
             if (msg == null || msg.seq() == null) return;
             if (msg.seq() == me.seq() || me.topoutAt() != null) return; // 같은 seq·topout 뒤 lock은 무시
@@ -237,7 +255,11 @@ public class LockService {
 
     /** 경기 시드(matches.seed). RESYNC(POL-006)도 이 값을 쓴다 */
     long seedOf(long matchId) {
-        return seeds.computeIfAbsent(matchId,
-                id -> jdbc.queryForObject("SELECT seed FROM matches WHERE id = ?", Long.class, id));
+        Long seed = seeds.get(matchId);
+        if (seed == null) { // DB 조회는 캐시 잠금 밖에서 한다(같은 값을 두 번 읽어도 무해)
+            seed = jdbc.queryForObject("SELECT seed FROM matches WHERE id = ?", Long.class, matchId);
+            seeds.put(matchId, seed);
+        }
+        return seed;
     }
 }

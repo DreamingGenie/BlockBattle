@@ -105,6 +105,42 @@ describe('StompClient', () => {
     expect(second.sent[0]).toContain('Authorization:Bearer t2');
   });
 
+  /** 보안 점검 M-2. 깨지면: TCP close 없이 끊긴 연결(모바일 망 등)을 서버도 클라이언트도 알아채지 못해, 끊김 유예와 재연결이 시작되지 않는다 */
+  it('하트비트 10초를 제안하고, 서버가 25초를 바라면 25초마다 줄바꿈을 보낸다', () => {
+    vi.useFakeTimers();
+    const { client } = setup();
+    client.connect();
+    const socket = FakeSocket.all[0]!;
+    socket.onopen?.({} as Event);
+    expect(socket.sent[0]).toContain('heart-beat:10000,10000');
+    socket.serverSends(encodeFrame('CONNECTED', { 'heart-beat': '10000,25000' }));
+    const before = socket.sent.length;
+    vi.advanceTimersByTime(24_999);
+    expect(socket.sent.slice(before)).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(socket.sent.slice(before)).toEqual(['\n']);
+  });
+
+  it('서버 신호가 30초 넘게 없으면 죽은 연결로 보고 다시 연결한다', () => {
+    vi.useFakeTimers();
+    const { client } = setup();
+    client.connect();
+    const first = FakeSocket.all[0]!;
+    first.onopen?.({} as Event);
+    first.serverSends(encodeFrame('CONNECTED', { 'heart-beat': '10000,25000' }));
+    for (let i = 0; i < 6; i++) {
+      vi.advanceTimersByTime(10_000);
+      first.serverSends('\n'); // 서버 하트비트가 오는 동안은 그대로 둔다
+    }
+    expect(FakeSocket.all).toHaveLength(1);
+    expect(client.isConnected).toBe(true);
+
+    vi.advanceTimersByTime(40_000); // 조용해진 뒤 3배(30초)를 넘긴 다음 점검
+    expect(client.isConnected).toBe(false);
+    vi.advanceTimersByTime(1000);
+    expect(FakeSocket.all).toHaveLength(2);
+  });
+
   it('disconnect 뒤에는 다시 연결하지 않는다', () => {
     vi.useFakeTimers();
     const { client } = setup();
