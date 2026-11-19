@@ -109,6 +109,18 @@ cd frontend && VITE_SERVICE_NOTICE="오늘 15:30에 서버 운영을 종료합�
 
 주소(sslip.io)가 바뀌면 브라우저 쿠키와 '이 기기에서 이어 하기'가 따라오지 않아 사용자는 다시 로그인한다. 회원·전적·랭킹은 DB에 있어 그대로다. Redis(방·Refresh 토큰)는 TTL이 있는 값이라 되살리지 않는다.
 
+**하위 경로에 함께 올리기(BEEZ 서버 `/tetris`, 2026-11-19 ~ 11-20 임시)** — 다른 서비스가 쓰는 서버의 한 경로 아래에 올릴 때 쓴다. 프론트는 `VITE_BASE_PATH=/tetris/`로 빌드하면 `/api`·`/ws`·`/ai`·초대 링크가 모두 그 아래로 간다. 블록 배틀 컨테이너는 별도 compose 프로젝트로 `127.0.0.1:18080`(backend)·`18000`(ai)에만 열고, 호스트 nginx의 `dev.beez.ai.kr` server 블록에 include 한 줄(`deploy/beez-host/tetris-locations.conf`)과 요청 한도(`tetris-limits.conf`)만 더한다. Refresh 쿠키 경로는 nginx `proxy_cookie_path`로 `/tetris/api/`로 바꾼다.
+
+```bash
+bash deploy/beez-host.sh up ../_local-data/block-battle-backup-20261119
+```
+
+```bash
+bash deploy/beez-host.sh down
+```
+
+`up`은 처음 한 번만 백업 DB를 되살리고(서버에 `deploy/.env`가 없을 때), 다시 실행하면 코드만 바꿔 올린다. `down`은 nginx 설정을 원래대로 되돌리고 컨테이너를 내리며 데이터 볼륨은 남긴다(`purge`는 볼륨까지 지움). 서버 접속은 `~/.ssh/config`의 `Host beez`를 쓴다(`BEEZ_SSH`로 바꿀 수 있음).
+
 **요청 한도·상한** — 남용과 메모리 고갈에 대비해 아래 값을 둔다(보안 점검 H-3). IP 기준이라 같은 와이파이 뒤의 여러 사람이 함께 쓰므로, 시연처럼 한곳에서 많이 접속하면 `nginx.conf.template`의 값을 늘린다. 한도를 넘으면 nginx가 429로 답한다.
 
 | 대상 | 값 |

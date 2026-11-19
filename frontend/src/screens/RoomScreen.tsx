@@ -8,6 +8,7 @@ import type { WsMessage } from '../realtime/stomp';
 import type { GameOverPayload, PlayerOutPayload, ResyncPayload } from '../game/friend';
 import { FxControls } from '../game/FxControls';
 import { MatchPanel, type MatchPanelHandle } from './MatchPanel';
+import { appPath } from '../app/basePath';
 
 export interface Countdown {
   matchId: number;
@@ -161,7 +162,7 @@ export function RoomScreen({ code }: { code: string }) {
   const isHost = !!room && room.hostUserId === me?.userId;
   const othersReady = !!room && room.players.length >= 2 && room.players.every((p) => p.userId === room.hostUserId || p.ready);
   const roundLabel = room ? (room.roundCount === 3 ? (room.players.length > 2 ? '1판 (3명 이상은 1판)' : '3판 2선승') : '1판') : '';
-  const inviteUrl = `${window.location.origin}/room/${code}`;
+  const inviteUrl = `${window.location.origin}${appPath(`room/${code}`)}`;
   const secondsLeft = countdown ? Math.max(0, Math.ceil((countdown.startsAt - now) / 1000)) : null;
 
   return (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ApiClient } from '../api/client';
 import { StompClient, wsUrl, type WsMessage } from './stomp';
+import { BASE_PATH } from '../app/basePath';
 
 /** GET /rooms/{code}·POST join 응답(API 명세 3.13·3.14) */
 export interface RoomView {
@@ -73,8 +74,12 @@ export function useRoomConnection(api: ApiClient, code: string | null, handlers:
   };
 }
 
-/** 경로 /room/{code}(초대 URL, 기획서 4.3)로 들어오면 해시 라우트 #/room/{code}로 바꾼다 */
-export function adoptInvitePath(): void {
-  const match = window.location.pathname.match(/^\/room\/([A-Za-z0-9]{6})\/?$/);
-  if (match) window.history.replaceState(null, '', `/#/room/${match[1]!.toUpperCase()}`);
+/** 경로 {하위 경로}room/{code}(초대 URL, 기획서 4.3)로 들어오면 해시 라우트 {하위 경로}#/room/{code}로 바꾼다 */
+export function adoptInvitePath(pathname: string = window.location.pathname, base: string = BASE_PATH): string | null {
+  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = pathname.match(new RegExp(`^${escaped}room/([A-Za-z0-9]{6})/?$`));
+  if (!match) return null;
+  const target = `${base}#/room/${match[1]!.toUpperCase()}`;
+  window.history.replaceState(null, '', target);
+  return target;
 }

@@ -7,6 +7,8 @@ const BACKEND = process.env.BACKEND_URL ?? 'http://localhost:8080';
 const AI = process.env.AI_URL ?? 'http://localhost:8000';
 
 export default defineConfig({
+  // 하위 경로에 올릴 때(예: https://dev.beez.ai.kr/tetris/) VITE_BASE_PATH=/tetris/ 로 빌드한다. 없으면 도메인 루트
+  base: process.env.VITE_BASE_PATH ?? '/',
   plugins: [react()],
   server: {
     port: 5173,
