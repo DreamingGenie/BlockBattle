@@ -148,6 +148,34 @@ class FriendMultiTest {
         assertThat(list.get(0).get("myPlacement").asInt()).isEqualTo(1);
     }
 
+    /** 깨지면: 정원 4명 방에서 4번 슬롯이 만들어지지 않거나, 4위부터 차례로 등수가 매겨지지 않는다 */
+    @Test
+    void 네_명_방은_4위부터_차례로_탈락하고_마지막_한_명이_이긴다() throws Exception {
+        Player d = guest("넷째");
+        join(d);
+        StompSession sd = connect(d);
+        sd.send("/app/rooms/" + code + "/ready", Map.of("ready", true));
+        long matchId = start();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM match_players WHERE match_id = ?", Integer.class, matchId))
+                .isEqualTo(4);
+
+        topout(sd, d, matchId);
+        assertThat(next("PLAYER_OUT").at("/payload/placement").asInt()).isEqualTo(4);
+        topout(sc, c, matchId);
+        assertThat(next("PLAYER_OUT").at("/payload/placement").asInt()).isEqualTo(3);
+        assertThat(poll("GAME_OVER", 300)).isNull();
+        topout(sb, b, matchId);
+
+        JsonNode over = next("GAME_OVER").get("payload");
+        assertThat(over.get("winnerUserId").asLong()).isEqualTo(a.userId());
+        assertThat(over.at("/placements/" + d.userId()).asInt()).isEqualTo(4);
+        assertThat(over.at("/placements/" + b.userId()).asInt()).isEqualTo(2);
+        assertThat(over.get("stats")).hasSize(4);
+        assertThat(placement(matchId, d)).isEqualTo(4);
+        assertThat(friend(d, "friend_losses")).isEqualTo(1);
+        assertThat(friend(a, "friend_wins")).isEqualTo(1);
+    }
+
     @Test
     void 마지막_두_사람이_함께_topout하면_무승부이고_먼저_탈락한_사람만_LOSE다() throws Exception {
         long matchId = start();

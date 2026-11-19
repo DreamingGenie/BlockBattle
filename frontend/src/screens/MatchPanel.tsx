@@ -231,7 +231,8 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
 
   if (!round) return null;
   const multi = oppIds.length > 1;
-  const oppCell = multi ? 14 : 20;
+  // 상대가 둘이면 한 줄, 셋이면 내 보드 옆에 2열 두 줄로 놓는다. 두 줄 높이가 내 보드를 넘지 않게 셋일 때 더 작게 그린다
+  const oppCell = oppIds.length >= 3 ? 12 : multi ? 14 : 20;
   const nextIn = over?.nextRoundStartsAt ? Math.max(0, Math.ceil((over.nextRoundStartsAt - now) / 1000)) : null;
   const iWon = over?.winnerUserId === myId;
   // 다인 대전은 1판이라 무승부여도 다음 라운드가 없다
@@ -257,6 +258,7 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
           <BoardCanvas ref={myBoard} label="내 보드" sound />
           {startIn > 0 && !over && <div className="overlay"><h1>{startIn}</h1></div>}
         </div>
+        <div className={`opponents${multi ? ' multi' : ''}`}>
         {oppIds.map((id) => (
           <div key={id} className={`board-wrap${outs[id] !== undefined ? ' out' : ''}`}>
             <p className="board-label">
@@ -274,6 +276,7 @@ export const MatchPanel = forwardRef<MatchPanelHandle, Props>(function MatchPane
             />
           </div>
         ))}
+        </div>
       </div>
       {over && over.botSuspectedUserIds?.includes(myId) && (
         <BotNotice
