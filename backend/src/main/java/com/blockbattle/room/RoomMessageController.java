@@ -40,13 +40,15 @@ public class RoomMessageController {
         locks.handle(code, Long.parseLong(user.getName()), message);
     }
 
-    public record TopoutRequest(Integer seq) {
+    /** holdUsed: 홀드로 꺼낸 블록이 나올 자리에서 막혔으면 true(선택, 기본 false) */
+    public record TopoutRequest(Integer seq, Boolean holdUsed) {
     }
 
     /** 5.3 SEND /app/rooms/{code}/topout — 서버 보드로 확인한 뒤 BR-04 판정(T-13) */
     @MessageMapping("/rooms/{code}/topout")
     public void topout(@DestinationVariable String code, @Payload TopoutRequest request, Principal user) {
-        locks.topout(code, Long.parseLong(user.getName()), request == null ? null : request.seq());
+        if (request == null) return;
+        locks.topout(code, Long.parseLong(user.getName()), request.seq(), request.holdUsed());
     }
 
     /** 5.1 SEND /app/rooms/{code}/ready — payload {"ready": true} */

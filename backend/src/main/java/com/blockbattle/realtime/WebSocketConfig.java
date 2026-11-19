@@ -43,6 +43,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // setPreserveReceiveOrder(true)는 쓰지 않는다: 켜면 CONNECT 인증 거부가 ERROR 프레임으로 나가지 않아
+        // 토큰 재발급(POL-013)이 깨진다. 한 세션의 lock·topout 순서가 뒤바뀌어도 lock 처리에서 서버가 topout을 판정한다(LockService)
         registry.addEndpoint("/ws").setAllowedOriginPatterns("*");
         registry.setErrorHandler(new StompErrorHandler(json));
     }
