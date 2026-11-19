@@ -14,6 +14,10 @@ import { currentDevice, isMobileBrowser } from './device';
 import { navigate, useRoute, type Route } from './router';
 import { SessionProvider, useSession } from './session';
 import { PresenceProvider } from './PresenceProvider';
+import { ServiceNotice, hasServiceNotice } from './ServiceNotice';
+
+// 공지 띠가 있으면 그 높이만큼 화면·판 높이 계산에서 뺀다(styles.css의 --notice-h)
+if (hasServiceNotice) document.documentElement.classList.add('has-service-notice');
 
 /** 화면 이름 → 화면. 게임·기록 화면은 T-19~T-22에서 채운다 */
 const screens: Partial<Record<Route['name'], (route: Route) => ReactElement>> = {
@@ -46,10 +50,13 @@ export function App() {
   // 세션 복원·로그인 API를 부르기 전에 판단한다(REQ-021)
   if (isMobileBrowser(currentDevice())) return <MobileNoticeScreen />;
   return (
-    <SessionProvider>
-      <PresenceProvider>
-        <Routed />
-      </PresenceProvider>
-    </SessionProvider>
+    <>
+      <ServiceNotice />
+      <SessionProvider>
+        <PresenceProvider>
+          <Routed />
+        </PresenceProvider>
+      </SessionProvider>
+    </>
   );
 }

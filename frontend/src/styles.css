@@ -114,7 +114,7 @@ th {
 }
 
 .center {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--notice-h));
   display: grid;
   place-items: center;
   padding: 16px;
@@ -1229,11 +1229,61 @@ a.button-like:hover {
    --board-reserve = 판 말고 세로로 차지하는 것(위아래 여백·제목 줄·점수 줄·테두리). 친구 대전은 라운드 안내 줄만큼 더 둔다 */
 :root {
   --board-reserve: 190px;
+  --notice-h: 0px;
+}
+
+/* 운영 공지 띠(ServiceNotice). 있으면 그 높이만큼 화면·판 높이에서 뺀다 */
+.has-service-notice {
+  --notice-h: 34px;
+}
+
+.service-notice {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  height: var(--notice-h);
+  line-height: var(--notice-h);
+  overflow: hidden;
+  white-space: nowrap;
+  background: #000;
+  color: #ff3b30;
+  font-weight: 700;
+  font-size: 14px;
+  border-bottom: 1px solid #3a0d0b;
+}
+
+/* 오른쪽 끝에서 나와 왼쪽 끝으로 사라진다. padding-left 100%가 띠 너비만큼 오른쪽 바깥에서 시작하게 한다 */
+.service-notice > span {
+  display: inline-block;
+  padding-left: 100%;
+  animation: service-notice-scroll 24s linear infinite;
+}
+
+@keyframes service-notice-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* 움직임 줄이기 설정이면 흐르지 않고 가운데에 고정한다 */
+@media (prefers-reduced-motion: reduce) {
+  .service-notice {
+    text-align: center;
+    text-overflow: ellipsis;
+  }
+
+  .service-notice > span {
+    padding-left: 0;
+    animation: none;
+  }
 }
 
 canvas.board {
   display: block;
-  max-height: calc(100vh - var(--board-reserve));
+  max-height: calc(100vh - var(--board-reserve) - var(--notice-h));
   max-width: 100%;
   width: auto;
   height: auto;

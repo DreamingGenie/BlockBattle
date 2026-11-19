@@ -87,6 +87,20 @@ bash deploy/deploy.sh <공인 IP> <키 파일.pem>
 
 운영 비밀값(`JWT_SECRET`, DB 비밀번호)은 서버의 `deploy/.env`(권한 600)에만 있고 저장소에는 `deploy/.env.example`만 있다.
 
+**공지 띠** — 서버 종료·점검을 알릴 때는 빌드할 때 `VITE_SERVICE_NOTICE`에 문구를 넣는다. 모든 화면 맨 위에 검은 띠로 빨간 글자가 오른쪽에서 왼쪽으로 흐른다. 값이 없으면(평소 `deploy.sh`) 띠가 나오지 않는다. 백엔드를 다시 띄우지 않고 프론트만 바꾸려면 빌드한 `frontend/dist`의 내용을 서버의 `~/block-battle/frontend/dist/`에 덮어쓴다(nginx가 이 폴더를 바로 읽는다). 이미 열려 있는 탭은 새로고침해야 보인다.
+
+```bash
+cd frontend && VITE_SERVICE_NOTICE="오늘 15:30에 서버 운영을 종료합니다" npm run build
+```
+
+**서버 이전·종료(백업과 복원)** — 서버를 내리거나 다른 서버로 옮길 때 쓴다.
+
+1. 백업: `bash deploy/backup.sh <공인 IP> <키 파일.pem> <받을 폴더>`. nginx·backend·ai를 먼저 멈춰 받는 동안 새 기록이 생기지 않게 하고, MySQL 덤프·테이블별 행 수·Redis 스냅숏·`.env`를 받아 체크섬을 확인한다. **받은 폴더에는 회원 데이터와 운영 비밀값이 있으니 저장소 밖에 두고 커밋하지 않는다.**
+2. 내리기: 서버에서 `cd ~/block-battle/deploy && sudo docker compose down`. 다시 열려면 `sudo docker compose start`(백업 직후)나 `up -d`.
+3. 복원: 새 서버를 위 1번처럼 만든 뒤 `bash deploy/restore.sh <새 공인 IP> <키 파일.pem> <백업 폴더>`. 백업의 `.env`를 새 주소로 바꿔 올리고 → `deploy.sh`로 기동 → DB를 덤프로 덮어쓴 뒤 → 행 수를 백업 때와 대조한다. 빈 서버(`deploy/.env` 없음)에서만 돈다.
+
+주소(sslip.io)가 바뀌면 브라우저 쿠키와 '이 기기에서 이어 하기'가 따라오지 않아 사용자는 다시 로그인한다. 회원·전적·랭킹은 DB에 있어 그대로다. Redis(방·Refresh 토큰)는 TTL이 있는 값이라 되살리지 않는다.
+
 **요청 한도·상한** — 남용과 메모리 고갈에 대비해 아래 값을 둔다(보안 점검 H-3). IP 기준이라 같은 와이파이 뒤의 여러 사람이 함께 쓰므로, 시연처럼 한곳에서 많이 접속하면 `nginx.conf.template`의 값을 늘린다. 한도를 넘으면 nginx가 429로 답한다.
 
 | 대상 | 값 |
