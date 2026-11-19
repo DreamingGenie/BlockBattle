@@ -73,7 +73,7 @@ services:
     cpus: 1.0          # AI 계산이 몰려도 2 vCPU 중 하나는 백엔드·DB에 남긴다
     logging: *default-logging
     environment:
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET}   # 백엔드와 같은 값. 없으면 기동하지 않는다(보안 점검 L-3)
 
   nginx:
     image: nginx:1.27-alpine

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 from typing import Literal
 
@@ -15,6 +16,12 @@ from . import rules, search
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "local-dev-only-secret-change-me-0123456789abcdef")
 PREFIX = "/ai/v1"
+
+# 보안 점검 M-1: 계산이 몰려도 CPU를 붙잡지 않게 한다. 클라이언트는 150ms를 넘기면 버리고 규칙 AI로 대신 두므로(FR-AI-02)
+# 계산은 SEARCH_BUDGET_S 안에서 끊고, 동시에 MAX_CONCURRENT개를 넘는 요청은 줄 세우지 않고 바로 503으로 돌려보낸다.
+SEARCH_BUDGET_S = 0.12
+MAX_CONCURRENT = int(os.environ.get("AI_MAX_CONCURRENT", "2"))
+_slots = threading.BoundedSemaphore(MAX_CONCURRENT)
 
 app = FastAPI(title="block-battle-ai")
 
@@ -72,9 +79,19 @@ def health() -> JSONResponse:
 
 @app.post(f"{PREFIX}/move")
 def move(req: MoveRequest) -> JSONResponse:
+    if not _slots.acquire(blocking=False):
+        return envelope(code="AI_BUSY", message="AI 서버가 바쁩니다.", status=503)
+    try:
+        return _move(req)
+    finally:
+        _slots.release()
+
+
+def _move(req: MoveRequest) -> JSONResponse:
     started = time.perf_counter()
     board = rules.board_from_grid(req.board)
-    chosen = search.choose(board, req.difficulty, req.current, req.hold, req.canHold, list(req.next), req.pendingGarbage)
+    chosen = search.choose(board, req.difficulty, req.current, req.hold, req.canHold, list(req.next), req.pendingGarbage,
+                           deadline=started + SEARCH_BUDGET_S)
     if chosen is None:
         # 생성 자리부터 막혀 놓을 곳이 없다(topout 직전). 그대로 떨어뜨린다.
         data = {"useHold": False, "piece": req.current, "rotation": 0, "x": rules.SPAWN_X,

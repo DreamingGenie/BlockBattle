@@ -165,7 +165,9 @@ public class MatchOutcomeService {
         payload.put("nextRoundStartsAt", nextRoundStartsAt);
         payload.put("stats", stats);
         payload.put("botSuspectedUserIds", botSuspects);
-        lastGameOver.put(code, payload);
+        // 다음 라운드 예약(startNextRound)만 다시 읽으므로 그때까지만 둔다. 시리즈가 끝났으면 남기지 않는다(보안 점검 L-8)
+        if (nextRoundStartsAt != null) lastGameOver.put(code, payload);
+        else lastGameOver.remove(code);
         events.publish(code, "GAME_OVER", payload);
         return true;
     }
@@ -175,6 +177,16 @@ public class MatchOutcomeService {
      * 한쪽이 끊긴 채 재접속하지 않았으면 남은 쪽이 시리즈 승자(POL-025), 둘 다 끊겼으면 시작하지 않는다.
      */
     void startNextRound(String code, long roomId, int seriesNo, int roundNo, int attemptNo, long startsAt) {
+        Map<String, Object> last = lastGameOver.get(code);
+        try {
+            runNextRound(code, roomId, seriesNo, roundNo, attemptNo, startsAt, last);
+        } finally {
+            if (last != null) lastGameOver.remove(code, last); // 이 예약이 읽은 값만 지운다(보안 점검 L-8)
+        }
+    }
+
+    private void runNextRound(String code, long roomId, int seriesNo, int roundNo, int attemptNo, long startsAt,
+                              Map<String, Object> last) {
         Map<String, String> room = rooms.getRoom(code);
         String current = room.get("currentMatchId");
         if (!"PLAYING".equals(room.get("status")) || (current != null && !current.isBlank())
@@ -186,7 +198,6 @@ public class MatchOutcomeService {
         if (connected.size() == 1) {
             long remaining = connected.get(0);
             if (decideSeriesByAbsence(code, roomId, seriesNo, remaining)) {
-                Map<String, Object> last = lastGameOver.get(code);
                 if (last != null) {
                     Map<String, Object> again = new LinkedHashMap<>(last);
                     again.put("seriesWinnerUserId", remaining);

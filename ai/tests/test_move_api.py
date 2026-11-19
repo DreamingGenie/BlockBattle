@@ -9,7 +9,7 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 
-from app import rules, search
+from app import main, rules, search
 from app.main import JWT_SECRET, app
 
 client = TestClient(app)
@@ -180,3 +180,32 @@ def test_very_easy_never_holds_and_errs_only_among_top_moves():
     assert all(m.placement in top for m in moves)
     off = sum(m.placement != ranked[0] for m in moves)
     assert 60 <= off <= 140
+
+
+def test_search_stops_at_deadline_and_picks_among_expanded():
+    """보안 점검 M-1 기한. 깨지면: 계산이 기한을 넘겨도 끝까지 돌아 버려질 응답에 CPU를 쓰거나, 기한에 걸렸을 때 엉뚱한 수를 낸다.
+    기한이 이미 지났으면 2수 탐색은 1수 평가 1위만 펼치므로 NORMAL(1수)과 같은 수를 낸다."""
+    board = rules.board_from_rows(["GGGG0GGGGG", "GGGGGGG0GG"])  # 2수 탐색과 1수 탐색이 다른 자리를 고르는 보드
+    full = search.choose(board, "HARD", "L", None, False, ["S", "S"], 0)
+    normal = search.choose(board, "NORMAL", "L", None, False, ["S", "S"], 0)
+    assert full.placement != normal.placement
+    late = search.choose(board, "HARD", "L", None, False, ["S", "S"], 0, deadline=time.perf_counter() - 1)
+    assert late.placement == normal.placement
+    on_time = search.choose(board, "HARD", "L", None, False, ["S", "S"], 0, deadline=time.perf_counter() + 60)
+    assert on_time == full
+
+
+def test_busy_server_answers_503_without_queueing():
+    """보안 점검 M-1 동시성 상한. 깨지면: 요청이 몰릴 때 줄을 세워 모든 응답이 150ms를 넘기고, 버려질 계산이 CPU를 계속 잡는다.
+    FE는 5xx를 받으면 바로 규칙 AI로 대신 둔다."""
+    held = 0
+    while main._slots.acquire(blocking=False):
+        held += 1
+    try:
+        res = client.post("/ai/v1/move", json=request("NORMAL"), headers=AUTH)
+        assert res.status_code == 503
+        assert res.json()["error"]["code"] == "AI_BUSY"
+    finally:
+        for _ in range(held):
+            main._slots.release()
+    assert client.post("/ai/v1/move", json=request("NORMAL"), headers=AUTH).status_code == 200

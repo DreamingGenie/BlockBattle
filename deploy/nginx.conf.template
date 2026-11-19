@@ -84,8 +84,8 @@ server {
         proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto https;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
+        proxy_read_timeout 90s;   # STOMP 하트비트(서버 10초·클라이언트 25초, 보안 점검 M-2)가 오가므로 이보다 오래 조용하면 죽은 연결이다
+        proxy_send_timeout 90s;
     }
 
     location /ai/ {

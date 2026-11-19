@@ -69,7 +69,7 @@ cd frontend && npm install && npm run dev
 
 브라우저에서 http://localhost:5173 을 연다. 친구 대전은 방장이 받은 초대 링크(`http://localhost:5173/room/{코드}`)나 코드로 다른 사용자가 들어온다. 같은 브라우저로 두 사람을 시험하려면 시크릿 창처럼 쿠키가 따로인 창을 쓴다.
 
-환경 변수(선택): `JWT_SECRET`(백엔드·AI가 같은 값), `PUBLIC_BASE_URL`(초대 링크 주소, 기본 `http://localhost:5173`), 프론트 프록시 대상 `BACKEND_URL`·`AI_URL`.
+환경 변수(선택): `JWT_SECRET`(백엔드·AI가 같은 값), `PUBLIC_BASE_URL`(초대 링크 주소, 기본 `http://localhost:5173`), 프론트 프록시 대상 `BACKEND_URL`·`AI_URL`, AI 동시 계산 상한 `AI_MAX_CONCURRENT`(기본 2, 넘으면 503 `AI_BUSY`). `JWT_SECRET`이 없으면 저장소에 공개된 개발용 키를 쓰는데, 백엔드는 `PUBLIC_BASE_URL`이 localhost가 아니면 이 키로 기동하지 않는다.
 
 ## 배포 (AWS EC2 1대)
 
@@ -153,4 +153,6 @@ Flyway 마이그레이션(`backend/src/main/resources/db/migration/`)은 이미 
 
 ## 알려진 한계
 
-- 카카오 계정 연결(Should)은 화면이 없다(카카오 앱 키 필요).
+- 카카오 계정 연결(Should)은 화면이 없다(카카오 앱 키 필요). 켤 때는 보안 점검 M-6(state 대조)·L-9(타임아웃)를 같이 고친다.
+- 11-16 부하·보안 점검(`docs/security-load-review-1116.md`)에서 아직 열린 항목: M-3~M-6, L-1·L-2·L-4·L-5·L-7·L-9~L-16, L-3 중 AI와 HS256 키 공유(aud·비대칭키), L-17 중 의존성·이미지 고정. 서버를 다시 올리기 전에는 배포 쪽 L-1(nginx 보안 헤더)·L-2(비root 컨테이너)·L-15(인증서 갱신)를 먼저 본다.
+- Refresh 토큰 재사용 탐지(L-4)는 넣지 않았다. 사용자당 Refresh 토큰이 하나뿐이고 HttpOnly 쿠키라 훔치기 어렵고, 탐지를 넣으면 두 탭이 동시에 재발급할 때 정상 사용자도 로그아웃되므로 유예 시간 설계가 함께 필요하다.

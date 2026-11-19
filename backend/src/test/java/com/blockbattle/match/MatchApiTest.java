@@ -179,6 +179,20 @@ class MatchApiTest {
         long matchId = data(start(token, "{\"mode\":\"AI\",\"aiDifficulty\":\"EASY\"}")).get("matchId").asLong();
         result(token, matchId, aiResult("WIN"));
         assertThat(jdbc.queryForObject("SELECT ranked FROM matches WHERE id = ?", Boolean.class, matchId)).isFalse();
+        assertThat(jdbc.queryForObject("SELECT ai_wins FROM user_stats WHERE user_id = ?", Integer.class, userId))
+                .as("상한을 어긴 결과는 AI 전적에 넣지 않는다").isZero();
+    }
+
+    /** 깨지면: AI가 블록을 거의 두지 않은(topout할 수 없는) 판을 승리로 신고해 AI 전적을 부풀릴 수 있다(보안 점검 L-6) */
+    @Test
+    void AI가_topout할_수_없는_승리는_ranked_false이고_AI_전적에_넣지_않는다() throws Exception {
+        long matchId = startAi();
+        String forged = aiResult("WIN").replace(
+                "\"piecesPlaced\":160,\"attackSent\":21,\"attackReceived\":38", "\"piecesPlaced\":3,\"attackSent\":0,\"attackReceived\":0");
+        assertThat(data(result(token, matchId, forged)).get("ranked").asBoolean()).isFalse();
+        assertThat(jdbc.queryForObject("SELECT ai_wins FROM user_stats WHERE user_id = ?", Integer.class, userId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT result FROM match_players WHERE match_id = ? AND slot = 1", String.class, matchId))
+                .as("경기 행은 남긴다").isEqualTo("WIN");
     }
 
     @Test

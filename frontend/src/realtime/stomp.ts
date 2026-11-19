@@ -3,7 +3,14 @@
  * - CONNECT에 Authorization: Bearer Access 토큰을 싣는다. 토큰은 연결할 때마다 getToken()으로 새로 읽는다.
  * - ERROR 프레임(UNAUTHORIZED·TOKEN_EXPIRED)이면 onAuthError로 토큰을 재발급받은 뒤 다시 연결한다.
  * - 연결이 끊기면 retryMs 간격으로 다시 연결하고, 등록된 구독을 모두 다시 보낸다.
+ * - 하트비트(보안 점검 M-2): 협상한 간격(서버 설정상 25초)마다 줄바꿈을 보내고, 서버 신호(10초 간격)가 그 3배 넘게 없으면
+ *   죽은 연결로 보고 다시 연결한다.
  */
+
+/** 이 클라이언트가 제안하는 STOMP 하트비트 ms(보낼 수 있는 최소 간격, 서버에게 바라는 간격). 서버 값은 backend WebSocketConfig */
+export const HEARTBEAT_MS = 10_000;
+/** 서버 신호가 협상 간격의 이 배수 동안 없으면 끊는다(Spring 브로커가 클라이언트를 끊는 기준과 같은 3배) */
+const HEARTBEAT_GRACE = 3;
 
 export interface Frame {
   command: string;
@@ -62,6 +69,8 @@ export class StompClient {
   private closedByUser = false;
   private everConnected = false;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimers: ReturnType<typeof setInterval>[] = [];
+  private lastReceived = 0;
 
   constructor(private readonly options: StompOptions) {}
 
@@ -95,6 +104,7 @@ export class StompClient {
   disconnect(): void {
     this.closedByUser = true;
     if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.stopHeartbeat();
     if (this.socket && this.connected) this.socket.send(encodeFrame('DISCONNECT', {}));
     this.socket?.close();
     this.socket = null;
@@ -107,14 +117,17 @@ export class StompClient {
     this.socket = socket;
     socket.onopen = () => {
       const token = this.options.getToken();
-      socket.send(encodeFrame('CONNECT', { 'accept-version': '1.2', 'heart-beat': '0,0', ...(token ? { Authorization: `Bearer ${token}` } : {}) }));
+      const heartBeat = `${HEARTBEAT_MS},${HEARTBEAT_MS}`;
+      socket.send(encodeFrame('CONNECT', { 'accept-version': '1.2', 'heart-beat': heartBeat, ...(token ? { Authorization: `Bearer ${token}` } : {}) }));
     };
     socket.onmessage = (event) => {
+      if (this.socket === socket) this.lastReceived = Date.now(); // 하트비트 줄바꿈도 서버 신호다
       for (const frame of decodeFrames(String(event.data))) this.handle(socket, frame);
     };
     socket.onerror = () => {};
     socket.onclose = () => {
       if (this.socket !== socket) return;
+      this.stopHeartbeat();
       const wasConnected = this.connected;
       this.connected = false;
       if (wasConnected) this.options.onDisconnected?.();
@@ -125,6 +138,7 @@ export class StompClient {
   private handle(socket: Socket, frame: Frame): void {
     if (frame.command === 'CONNECTED') {
       this.connected = true;
+      this.startHeartbeat(socket, frame.headers['heart-beat']);
       for (const [id, sub] of this.subs) socket.send(encodeFrame('SUBSCRIBE', { id, destination: sub.destination }));
       const reconnect = this.everConnected;
       this.everConnected = true;
@@ -146,6 +160,7 @@ export class StompClient {
     if (frame.command === 'ERROR') {
       const code = frame.headers.message ?? '';
       // 서버가 연결을 끊는다. 인증 오류면 토큰을 다시 받고 재연결한다(POL-013)
+      this.stopHeartbeat();
       this.socket = null;
       this.connected = false;
       socket.close();
@@ -157,6 +172,38 @@ export class StompClient {
         this.scheduleRetry();
       }
     }
+  }
+
+  /** STOMP 1.2 협상: CONNECTED의 heart-beat가 "서버가 보낼 간격,서버가 기대하는 간격"이다. 0이면 그 방향은 끈다 */
+  private startHeartbeat(socket: Socket, header: string | undefined): void {
+    this.stopHeartbeat();
+    const [serverSends = 0, serverExpects = 0] = (header ?? '0,0').split(',').map((v) => Number(v) || 0);
+    const sendEvery = serverExpects > 0 ? Math.max(HEARTBEAT_MS, serverExpects) : 0;
+    const expectEvery = serverSends > 0 ? Math.max(HEARTBEAT_MS, serverSends) : 0;
+    this.lastReceived = Date.now();
+    if (sendEvery > 0) this.heartbeatTimers.push(setInterval(() => socket.send('\n'), sendEvery));
+    if (expectEvery > 0) {
+      this.heartbeatTimers.push(setInterval(() => {
+        if (Date.now() - this.lastReceived > expectEvery * HEARTBEAT_GRACE) this.dropDeadSocket(socket);
+      }, expectEvery));
+    }
+  }
+
+  private stopHeartbeat(): void {
+    for (const timer of this.heartbeatTimers) clearInterval(timer);
+    this.heartbeatTimers = [];
+  }
+
+  /** TCP close 없이 조용해진 연결. close 이벤트가 늦게 오거나 안 오므로 기다리지 않고 끊김으로 처리한다 */
+  private dropDeadSocket(socket: Socket): void {
+    if (this.socket !== socket) return;
+    this.stopHeartbeat();
+    this.socket = null;
+    const wasConnected = this.connected;
+    this.connected = false;
+    if (wasConnected) this.options.onDisconnected?.();
+    socket.close();
+    this.scheduleRetry();
   }
 
   private scheduleRetry(): void {

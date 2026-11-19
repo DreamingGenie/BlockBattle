@@ -66,4 +66,18 @@ class ResultLimitsTest {
     void 보고서의_위조_예시는_상한을_넘는다() {
         assertThat(ResultLimits.withinLimits(2_147_483_647L, 4, 1, 10, 0, 50_000_000, 1_000, 1_000)).isFalse();
     }
+
+    /**
+     * 보안 점검 L-6 ⑦·⑧. 깨지면: AI가 거의 두지도 않은 판을 승리로 신고해 AI 전적을 부풀릴 수 있거나(경계가 느슨해짐),
+     * 정상적으로 이긴 판이 전적에서 빠진다(경계가 빡빡해짐).
+     */
+    @Test
+    void AI_승리는_AI가_topout할_만큼_쌓였고_블록을_서버_시간_안에_뒀어야_한다() {
+        assertThat(ResultLimits.aiResultPlausible(true, 5, 0, 60_000)).isTrue();   // 4 × 5 = 20
+        assertThat(ResultLimits.aiResultPlausible(true, 4, 3, 60_000)).isFalse();  // 16 + 3 = 19
+        assertThat(ResultLimits.aiResultPlausible(true, 2, 12, 60_000)).isTrue();  // 받은 공격 줄로 쌓임
+        assertThat(ResultLimits.aiResultPlausible(false, 0, 0, 60_000)).isTrue();  // 패배는 topout 조건이 없다
+        assertThat(ResultLimits.aiResultPlausible(false, 200, 0, 10_000)).isTrue();  // 200 × 50 = 10,000
+        assertThat(ResultLimits.aiResultPlausible(false, 201, 0, 10_000)).isFalse();
+    }
 }
