@@ -1,3 +1,4 @@
+import { appPath } from '../app/basePath';
 /**
  * REST 클라이언트(API 명세 1장, T-18).
  * 응답 봉투 {success, data, error}를 풀고 Access 토큰을 붙인다. 401이면 Refresh 쿠키로 한 번 재발급해 다시 보내고,
@@ -53,7 +54,7 @@ export class ApiClient {
 
   constructor(
     private readonly fetchFn: FetchFn = (input, init) => fetch(input, init),
-    private readonly base = '/api/v1',
+    private readonly base = appPath('api/v1'),
     private readonly sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
   ) {}
 

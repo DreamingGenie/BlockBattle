@@ -1,3 +1,4 @@
+import { appPath } from '../app/basePath';
 /**
  * 작은 STOMP 1.2 클라이언트(API 명세 5장, POL-013, T-21). 라이브러리 없이 브라우저 WebSocket 위에서 돈다.
  * - CONNECT에 Authorization: Bearer Access 토큰을 싣는다. 토큰은 연결할 때마다 getToken()으로 새로 읽는다.
@@ -224,8 +225,8 @@ export interface WsMessage<T = Record<string, unknown>> {
   payload: T;
 }
 
-/** 개발 서버(같은 출처)의 /ws 주소 */
+/** 같은 출처의 /ws 주소(하위 경로에 올렸으면 그 아래) */
 export function wsUrl(): string {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${window.location.host}/ws`;
+  return `${proto}//${window.location.host}${appPath('ws')}`;
 }

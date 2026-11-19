@@ -15,6 +15,7 @@ import { BotNotice, ResultModal } from '../game/ResultModal';
 import { formatWinTime, objectParticle } from '../app/format';
 import { useGameLoop } from '../game/useGameLoop';
 import { aiResultBody, forwardAttacks } from '../game/versus';
+import { appPath } from '../app/basePath';
 
 interface Started {
   matchId: number;
@@ -79,7 +80,7 @@ export function AiScreen() {
         controller.current?.stop();
         controller.current = new AiController(ai.current, difficulty, {
           // AI 서버 POST /move(AI Base URL /ai/v1 뒤). 150ms 초과·오류면 규칙 AI, 늦은 응답은 버린다(T-8)
-          requestMove: (body) => requestServerMove(body, { fetch: (u, i) => fetch(u, i), baseUrl: '/ai/v1', accessToken: api.token ?? '' }),
+          requestMove: (body) => requestServerMove(body, { fetch: (u, i) => fetch(u, i), baseUrl: appPath('ai/v1'), accessToken: api.token ?? '' }),
           rand: Math.random,
         });
         controller.current.start();
