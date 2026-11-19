@@ -34,6 +34,8 @@ interface MatchDetail {
     attackReceived: number;
     maxCombo: number;
     apm: number;
+    /** 친구 대전 등수(옛 경기·싱글·AI는 null) */
+    placement?: number | null;
   }[];
 }
 
@@ -106,6 +108,7 @@ export function MatchDetailScreen({ id }: { id: string }) {
                   <td>{p.playerType === 'AI' ? `AI${data.aiDifficulty ? ` (${difficultyLabel(data.aiDifficulty)})` : ''}` : `${p.nickname}#${p.tag}`}</td>
                   <td>
                     <ResultBadge result={p.result} />
+                    {data.players.length > 2 && p.placement != null && <span className="badge">{p.placement}위</span>}
                   </td>
                   <td className="num strong">{p.score.toLocaleString()}</td>
                   <td>{p.linesCleared}</td>

@@ -159,6 +159,8 @@ class RoomApiTest {
         Player host = guest("오션");
         String code = data(create(host, "{}")).get("roomCode").asText();
         join(guest("민수"), code);
+        join(guest("하늘"), code);
+        join(guest("보라"), code); // 정원 4명(다인 대전 2026-11-19)
         Player third = guest("지아");
         expectError(join(third, code), 409, "ROOM_FULL");
         assertThat(redis.hasKey(RedisKeys.userRoom(third.userId()))).as("거부되면 활성 방에 묶이지 않는다").isFalse();
@@ -171,7 +173,7 @@ class RoomApiTest {
     }
 
     @Test
-    void 동시에_여러_명이_들어와도_정원_2명을_넘지_않는다() throws Exception {
+    void 동시에_여러_명이_들어와도_정원_4명을_넘지_않는다() throws Exception {
         Player host = guest("오션");
         String code = data(create(host, "{}")).get("roomCode").asText();
         List<Player> joiners = new ArrayList<>();
@@ -182,9 +184,9 @@ class RoomApiTest {
         List<Integer> statuses = new ArrayList<>();
         for (var f : pool.invokeAll(calls)) statuses.add(f.get());
         pool.shutdown();
-        assertThat(statuses.stream().filter(s -> s == 200).count()).isEqualTo(1);
-        assertThat(statuses.stream().filter(s -> s == 409).count()).isEqualTo(5);
-        assertThat(redis.opsForHash().size(RedisKeys.roomPlayers(code))).isEqualTo(2);
+        assertThat(statuses.stream().filter(s -> s == 200).count()).isEqualTo(3);
+        assertThat(statuses.stream().filter(s -> s == 409).count()).isEqualTo(3);
+        assertThat(redis.opsForHash().size(RedisKeys.roomPlayers(code))).isEqualTo(4);
     }
 
     @Test

@@ -34,7 +34,8 @@ public class RoomService {
     public record Created(RoomView room, String inviteUrl) {
     }
 
-    static final int CAPACITY = 2;
+    /** 최대 4인 친구 대전(2026-11-19). 2명 이상이 모이고 방장이 시작하면 경기가 열린다 */
+    static final int CAPACITY = 4;
     private static final int CODE_ATTEMPTS = 20;
 
     private final RoomStateStore rooms;
@@ -109,12 +110,14 @@ public class RoomService {
         rooms.touch(code); // 입장은 활동이다(POL-024)
         if (result == 1) {
             events.publish(code, "PLAYER_JOINED", Map.of("userId", userId, "nickname", me.nickname(), "tag", me.tag()));
+            unreadyHost(code); // 방장의 준비는 "시작"이다. 새 사람이 들어오면 그 사람의 준비를 기다리도록 되돌린다
         }
         return view(code);
     }
 
     /**
-     * 퇴장(API 명세 3.15). 방장이 나가면 방을 닫고(HOST_LEFT), 마지막 사람이 나가면 EMPTY로 닫는다.
+     * 퇴장(API 명세 3.15). 방장이 나가 한 사람만 남으면 방을 닫고(HOST_LEFT), 두 사람 이상 남으면 userId가 가장 작은 사람이
+     * 방장을 넘겨받는다(HOST_CHANGED, 다인 대전 2026-11-19). 마지막 사람이 나가면 EMPTY로 닫는다.
      * 경기 중이면 RoomLeaveHook으로 승패 처리를 먼저 넘긴다(T-13).
      */
     public void leave(long userId, String code) {
@@ -131,7 +134,7 @@ public class RoomService {
         }
         long roomId = Long.parseLong(room.get("roomId"));
         boolean host = Long.toString(userId).equals(room.get("hostId"));
-        if (host) {
+        if (host && players.size() <= 2) {
             closeRoom(code, roomId, "HOST_LEFT");
             return;
         }
@@ -141,6 +144,12 @@ public class RoomService {
         if (players.size() <= 1) {
             closeRoom(code, roomId, "EMPTY");
             return;
+        }
+        if (host) {
+            long next = players.keySet().stream().filter(id -> id != userId).min(Long::compare).orElseThrow();
+            rooms.putRoomFields(code, Map.of("hostId", Long.toString(next)));
+            unreadyHost(code);
+            events.publish(code, "HOST_CHANGED", Map.of("userId", next));
         }
         rooms.touch(code); // 퇴장도 활동이다(POL-024)
         events.publish(code, "PLAYER_LEFT", Map.of("userId", userId, "reason", "LEFT"));
@@ -173,6 +182,16 @@ public class RoomService {
     }
 
     /** MySQL 이력을 CLOSED로 바꾸고 Redis 진행 상태를 지운 뒤 ROOM_CLOSED를 방송한다(BR-01) */
+    private void unreadyHost(String code) {
+        String hostId = rooms.getRoom(code).get("hostId");
+        if (hostId == null) return;
+        long host = Long.parseLong(hostId);
+        RoomPlayer p = rooms.getPlayers(code).get(host);
+        if (p == null || !p.ready()) return;
+        rooms.putPlayer(code, host, new RoomPlayer(p.nickname(), p.tag(), false, p.connected(), p.rematch()));
+        events.publish(code, "READY_CHANGED", Map.of("userId", host, "ready", false));
+    }
+
     void closeRoom(String code, long roomId, String reason) {
         roomRepository.close(roomId, reason, clock.instant());
         rooms.deleteRoom(code);

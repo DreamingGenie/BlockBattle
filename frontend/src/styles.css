@@ -2058,3 +2058,8 @@ button.logout-option.danger:hover:not(:disabled) {
     justify-self: start;
   }
 }
+
+/* 다인 대전: 탈락한 상대 보드는 흐리게(2026-11-19) */
+.match-panel .board-wrap.out {
+  opacity: 0.45;
+}

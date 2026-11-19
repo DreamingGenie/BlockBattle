@@ -1,7 +1,9 @@
 package com.blockbattle.store.redis;
 
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -64,6 +66,26 @@ public class MatchStateStore {
         }
         return result;
     }
+
+    /** 다인 대전 탈락 등수(필드 "{userId}:placement"). 정해지면 바뀌지 않는다 */
+    public void putPlacement(long matchId, long userId, int placement) {
+        redis.opsForHash().put(RedisKeys.matchState(matchId), userId + ":" + PLACEMENT, Integer.toString(placement));
+        touch(matchId);
+    }
+
+    /** 등수가 정해진(탈락했거나 경기가 끝난) 참가자만 담는다 */
+    public Map<Long, Integer> getPlacements(long matchId, Collection<Long> userIds) {
+        List<Long> ids = List.copyOf(userIds);
+        List<Object> keys = ids.stream().<Object>map(id -> id + ":" + PLACEMENT).toList();
+        List<Object> values = redis.opsForHash().multiGet(RedisKeys.matchState(matchId), keys);
+        Map<Long, Integer> result = new LinkedHashMap<>();
+        for (int i = 0; i < ids.size(); i++) {
+            if (values.get(i) != null) result.put(ids.get(i), Integer.parseInt((String) values.get(i)));
+        }
+        return result;
+    }
+
+    static final String PLACEMENT = "placement";
 
     public void touch(long matchId) {
         redis.expire(RedisKeys.matchState(matchId), RedisKeys.MATCH_STATE_TTL);
