@@ -9,6 +9,7 @@ import type { GameOverPayload, PlayerOutPayload, ResyncPayload } from '../game/f
 import { FxControls } from '../game/FxControls';
 import { MatchPanel, type MatchPanelHandle } from './MatchPanel';
 import { appPath } from '../app/basePath';
+import { currentRoomOnConflict } from '../app/currentRoom';
 
 export interface Countdown {
   matchId: number;
@@ -35,6 +36,8 @@ export function RoomScreen({ code }: { code: string }) {
     return () => clearTimeout(t);
   }, [notice]);
   const [closed, setClosed] = useState<string | null>(null);
+  /** 경기 중인 다른 방에 묶여 입장이 막혔을 때 돌아갈 방 */
+  const [stuckRoom, setStuckRoom] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<Countdown | null>(null);
   const [now, setNow] = useState(Date.now());
   const participant = !!room && !!me && room.players.some((p) => p.userId === me.userId);
@@ -146,10 +149,12 @@ export function RoomScreen({ code }: { code: string }) {
 
   async function join() {
     setError(null);
+    setStuckRoom(null);
     try {
       setRoom(await api.post<RoomView>(`/rooms/${code}/join`));
     } catch (e) {
       setError(errorMessage(e));
+      setStuckRoom(await currentRoomOnConflict(api, e));
     }
   }
 
@@ -189,6 +194,11 @@ export function RoomScreen({ code }: { code: string }) {
         </section>
       )}
       {error && <p className="error">{error}</p>}
+      {stuckRoom && stuckRoom !== code && (
+        <button className="secondary" onClick={() => navigate(`/room/${stuckRoom}`)}>
+          참가 중인 방({stuckRoom})으로 돌아가기
+        </button>
+      )}
       {notice && (
         <p className="toast" role="status">
           {notice}

@@ -182,7 +182,7 @@ export function errorMessage(error: unknown): string {
     ROOM_NOT_FOUND: '방을 찾을 수 없습니다. 코드를 확인해 주세요.',
     ROOM_FULL: '방이 가득 찼습니다.',
     ROOM_ALREADY_PLAYING: '이미 경기가 시작된 방입니다.',
-    ALREADY_IN_ROOM: '이미 다른 방에 들어가 있습니다. 그 방에서 먼저 나와 주세요.',
+    ALREADY_IN_ROOM: '경기가 진행 중인 방에 참가하고 있습니다. 그 경기가 끝나거나 그 방에서 나온 뒤 다시 시도해 주세요.',
     NOT_PARTICIPANT: '이 방(경기)의 참가자가 아닙니다.',
     MATCH_NOT_FOUND: '경기를 찾을 수 없습니다.',
     UNAUTHORIZED: '다시 로그인해 주세요.',

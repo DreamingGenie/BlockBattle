@@ -63,7 +63,7 @@ public class RoomService {
     public Created create(long userId, Integer roundCountOrNull) {
         int roundCount = roundCountOrNull == null ? 1 : roundCountOrNull;
         if (roundCount != 1 && roundCount != 3) throw new ApiException(ErrorCode.INVALID_ROUND_COUNT);
-        if (rooms.findUserRoom(userId).isPresent()) throw new ApiException(ErrorCode.ALREADY_IN_ROOM);
+        leavePreviousRoom(userId, null);
         UserRow me = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
 
         String code = reserveCode(userId);
@@ -95,6 +95,7 @@ public class RoomService {
         Map<String, String> room = rooms.getRoom(code);
         if (room.get("status") == null) throw new ApiException(ErrorCode.ROOM_NOT_FOUND);
         if (rooms.getPlayers(code).containsKey(userId)) return view(code);
+        leavePreviousRoom(userId, code);
         String current = rooms.findUserRoom(userId).orElse(null);
         if (current != null && !current.equals(code)) throw new ApiException(ErrorCode.ALREADY_IN_ROOM);
         UserRow me = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
@@ -182,6 +183,31 @@ public class RoomService {
     }
 
     /** MySQL 이력을 CLOSED로 바꾸고 Redis 진행 상태를 지운 뒤 ROOM_CLOSED를 방송한다(BR-01) */
+    /**
+     * 다른 방을 만들거나 들어가려는데 아직 묶인 방이 있을 때(2026-11-19 제보: 방을 만들고 시작하지 않은 채 창을 닫으면
+     * 그 방이 30분 동안 만료되지 않아 다른 방에 들어갈 수 없었다). 창을 닫는 것은 퇴장이 아니라 묶임이 남는다.
+     * 그 방이 없거나 그 방 참가자가 아니면 묶임만 지우고, 경기 중이 아니면(대기·끝남) 그 방에서 나간 뒤 진행한다.
+     * 경기 중(라운드 사이 포함)이면 모르고 경기를 포기하게 되므로 ALREADY_IN_ROOM이다 — 화면은 GET /users/me의
+     * currentRoomCode로 그 방에 돌아가게 한다.
+     */
+    private void leavePreviousRoom(long userId, String target) {
+        String current = rooms.findUserRoom(userId).orElse(null);
+        if (current == null || current.equals(target)) return;
+        Map<String, String> room = rooms.getRoom(current);
+        if (room.get("status") == null || !rooms.getPlayers(current).containsKey(userId)) {
+            rooms.unbindUserRoom(userId);
+            return;
+        }
+        if ("PLAYING".equals(room.get("status"))) throw new ApiException(ErrorCode.ALREADY_IN_ROOM);
+        leave(userId, current);
+    }
+
+    /** 지금 묶인 방(참가 중일 때만). GET /users/me가 화면에 "참가 중인 방으로 돌아가기"를 띄우는 데 쓴다 */
+    public java.util.Optional<String> currentRoom(long userId) {
+        return rooms.findUserRoom(userId)
+                .filter(code -> rooms.getRoom(code).get("status") != null && rooms.getPlayers(code).containsKey(userId));
+    }
+
     private void unreadyHost(String code) {
         String hostId = rooms.getRoom(code).get("hostId");
         if (hostId == null) return;

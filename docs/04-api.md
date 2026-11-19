@@ -119,8 +119,11 @@ REST 응답은 모두 같은 봉투로 감싼다. 성공이면 success = true, e
 // 200 응답 data
 { "userId": 12, "nickname": "오션", "tag": "0421", "userType": "GUEST",
   "stats": { "soloGames": 31, "soloBestScore": 45200,
-             "aiWins": 7, "aiLosses": 4, "friendWins": 12, "friendLosses": 9 } }
+             "aiWins": 7, "aiLosses": 4, "friendWins": 12, "friendLosses": 9 },
+  "currentRoomCode": null }
 ```
+
+currentRoomCode는 지금 참가 중인 친구 대전 방이다(없으면 null). 창을 닫는 것은 퇴장이 아니라 방에 남아 있을 수 있다(2026-11-19).
 
 ### 3.7 GET /users/me/matches — 내 최근 경기 목록
 
@@ -232,7 +235,9 @@ ranked=false 경기와, 신고한 플레이 시간이 서버 경과 시간(ended
   "roundCount": 1, "hostUserId": 12, "expiresAt": "2026-11-10T16:30:00+09:00" }
 ```
 
-오류: INVALID_ROUND_COUNT(400, 1·3이 아님), ALREADY_IN_ROOM(409, 다른 활성 방에 있음)
+오류: INVALID_ROUND_COUNT(400, 1·3이 아님), ALREADY_IN_ROOM(409, 경기 중인 다른 방에 있음)
+
+다른 방에 묶여 있어도 그 방이 대기·끝난 상태면 서버가 그 방에서 먼저 나간 뒤(3.15와 같은 처리) 만들고 입장한다. 경기 중(라운드 사이 포함)이면 ALREADY_IN_ROOM이고, 화면은 3.6의 currentRoomCode로 그 방에 돌아가게 한다(2026-11-19).
 
 ### 3.13 GET /rooms/{roomCode} — 방 조회
 
@@ -258,7 +263,7 @@ ranked=false 경기와, 신고한 플레이 시간이 서버 경과 시간(ended
   "expiresAt": "2026-11-10T16:30:00+09:00" }
 ```
 
-이미 그 방 참가자면 입장 없이 같은 응답을 준다. 오류: ROOM_NOT_FOUND(404), ROOM_FULL(409), ROOM_ALREADY_PLAYING(409, WAITING이 아닌 방), ALREADY_IN_ROOM(409)
+이미 그 방 참가자면 입장 없이 같은 응답을 준다. 오류: ROOM_NOT_FOUND(404), ROOM_FULL(409), ROOM_ALREADY_PLAYING(409, WAITING이 아닌 방), ALREADY_IN_ROOM(409, 경기 중인 다른 방에 있음 — 대기·끝난 방은 먼저 나가고 입장한다)
 
 ### 3.15 POST /rooms/{roomCode}/leave — 방 퇴장
 
@@ -399,7 +404,7 @@ seed는 경기 시드(COUNTDOWN과 같은 값), me는 서버 진행 상태 원�
 | NICKNAME_TAG_EXHAUSTED | 409 | 그 닉네임의 태그가 모두 쓰임 |
 | ROOM_FULL | 409 | 정원(2명) 초과 |
 | ROOM_ALREADY_PLAYING | 409 | WAITING이 아닌 방 |
-| ALREADY_IN_ROOM | 409 | 다른 활성 방에 있음 |
+| ALREADY_IN_ROOM | 409 | 경기 중인 다른 방에 있음(대기·끝난 방은 자동으로 나간다) |
 | MATCH_ALREADY_FINISHED | 409 | 이미 끝난 경기 |
 | KAKAO_ALREADY_LINKED | 409 | 다른 회원에 연결된 카카오 계정 |
 | ACCOUNT_ALREADY_LINKED | 409 | 이미 카카오가 연결된 계정 |

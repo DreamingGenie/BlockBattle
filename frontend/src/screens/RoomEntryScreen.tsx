@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { errorMessage } from '../api/client';
 import { navigate } from '../app/router';
 import { useSession } from '../app/session';
+import { currentRoomOnConflict } from '../app/currentRoom';
 
 /** 친구 대전 입구(FR-ROM-01·02): 방 만들기(POST /rooms) 또는 코드로 들어가기 */
 export function RoomEntryScreen() {
@@ -10,15 +11,19 @@ export function RoomEntryScreen() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** 경기 중인 방에 묶여 막혔을 때 돌아갈 방 */
+  const [stuckRoom, setStuckRoom] = useState<string | null>(null);
 
   async function create() {
     setBusy(true);
     setError(null);
+    setStuckRoom(null);
     try {
       const created = await api.post<{ roomCode: string }>('/rooms', { roundCount });
       navigate(`/room/${created.roomCode}`);
     } catch (e) {
       setError(errorMessage(e));
+      setStuckRoom(await currentRoomOnConflict(api, e));
     } finally {
       setBusy(false);
     }
@@ -63,6 +68,11 @@ export function RoomEntryScreen() {
         </form>
       </section>
       {error && <p className="error">{error}</p>}
+      {stuckRoom && (
+        <button className="secondary" onClick={() => navigate(`/room/${stuckRoom}`)}>
+          참가 중인 방({stuckRoom})으로 돌아가기
+        </button>
+      )}
     </main>
   );
 }
