@@ -41,7 +41,7 @@ export function AiScreen() {
   const [error, setError] = useState<string | null>(null);
   const [round, setRound] = useState(0);
   const [hud, setHud] = useState({ me: 0, ai: 0, server: 0, fallback: 0 });
-  const [outcome, setOutcome] = useState<{ win: boolean; ranked: boolean; bot: boolean; matchId: number } | null>(null);
+  const [outcome, setOutcome] = useState<{ win: boolean; ranked: boolean; bot: boolean; probation: boolean; matchId: number } | null>(null);
   const match = useRef<Started | null>(null);
   const me = useRef<Game | null>(null);
   const ai = useRef<Game | null>(null);
@@ -105,8 +105,8 @@ export function AiScreen() {
       playMs.current = Math.max(playMs.current, performance.now() - startedAt.current);
       setPhase('saving');
       try {
-        const saved = await api.post<{ ranked: boolean; botSuspected?: boolean }>(`/matches/${m.matchId}/result`, aiResultBody(me.current, ai.current, win, playMs.current, input.presses, input.stats.summary(input.presses, me.current.piecesPlaced)), { retryUnavailable: true });
-        setOutcome({ win, ranked: saved.ranked, bot: saved.botSuspected === true, matchId: m.matchId });
+        const saved = await api.post<{ ranked: boolean; botSuspected?: boolean; botProbation?: boolean }>(`/matches/${m.matchId}/result`, aiResultBody(me.current, ai.current, win, playMs.current, input.presses, input.stats.summary(input.presses, me.current.piecesPlaced)), { retryUnavailable: true });
+        setOutcome({ win, ranked: saved.ranked, bot: saved.botSuspected === true, probation: saved.botProbation === true, matchId: m.matchId });
         reloadMe().catch(() => {});
         setPhase('result');
       } catch (e) {
@@ -231,7 +231,7 @@ export function AiScreen() {
         </div>
       </section>
       {phase === 'result' && outcome?.bot && (
-        <BotNotice matchId={outcome.matchId} onRetry={() => setRound((r) => r + 1)} />
+        <BotNotice matchId={outcome.matchId} probation={outcome.probation} onRetry={() => setRound((r) => r + 1)} />
       )}
       {phase === 'result' && outcome && !outcome.bot && (
         <ResultModal tone={outcome.win ? 'win' : 'lose'} title={outcome.win ? 'VICTORY' : 'DEFEAT'}>

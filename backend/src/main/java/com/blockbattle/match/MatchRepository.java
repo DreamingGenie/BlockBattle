@@ -87,12 +87,26 @@ public class MatchRepository {
     }
 
     /** 봇 판정 근거값(T-40). 요약값·서버 계산값을 JSON 한 칸에 둔다 */
-    public void saveInputStats(long matchId, Integer keyPresses, BotCheck.InputStats s, BotCheck.Verdict v) {
+    public void saveInputStats(long matchId, Integer keyPresses, BotCheck.InputStats s, BotCheck.Verdict v, boolean bot,
+                               boolean probation) {
         String json = String.format(java.util.Locale.ROOT,
-                "{\"intervalCv\":%s,\"holdMeanMs\":%s,\"holdCv\":%s,\"inputsPerPiece\":%s,\"pps\":%.2f,\"softSignals\":%d,\"hard\":%b}",
+                "{\"intervalCv\":%s,\"holdMeanMs\":%s,\"holdCv\":%s,\"inputsPerPiece\":%s,\"pps\":%.2f,\"softSignals\":%d,\"hard\":%b,\"bot\":%b,\"probation\":%b}",
                 num(s == null ? null : s.intervalCv()), num(s == null ? null : s.holdMeanMs()), num(s == null ? null : s.holdCv()),
-                num(s == null ? null : s.inputsPerPiece()), v.pps(), v.softSignals(), v.hard());
+                num(s == null ? null : s.inputsPerPiece()), v.pps(), v.softSignals(), v.hard(), bot, probation);
         jdbc.update("UPDATE matches SET key_presses = ?, input_stats = ? WHERE id = ?", keyPresses, json, matchId);
+    }
+
+    /**
+     * since 뒤에 시작한 이 사용자의 싱글·vs AI 경기 가운데 봇으로 판정된 것이 있는지. bot이 없는 옛 행은 hard로 본다.
+     * 유예(probation)로 제외된 경기는 세지 않는다 — 판정된 시각부터 24시간이 지나면 풀린다.
+     */
+    public boolean hasRecentBotFlag(long userId, Instant since) {
+        Integer n = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM match_players p JOIN matches m ON m.id = p.match_id
+                WHERE p.user_id = ? AND m.mode IN ('SOLO', 'AI') AND m.started_at > ?
+                  AND (m.input_stats->>'$.bot' = 'true' OR m.input_stats->>'$.hard' = 'true')""",
+                Integer.class, userId, Timestamp.from(since));
+        return n != null && n > 0;
     }
 
     private static String num(Double d) {

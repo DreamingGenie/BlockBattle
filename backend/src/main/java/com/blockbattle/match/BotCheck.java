@@ -16,9 +16,13 @@ package com.blockbattle.match;
  *   <li>블록 간격 변동계수 < MIN_INTERVAL_CV (고정 지연으로 일정하게 놓음)</li>
  *   <li>키 누름 시간 변동계수 < MIN_HOLD_CV 또는 평균 < MIN_HOLD_MEAN_MS (기계적인 키 입력)</li>
  *   <li>블록당 키 입력 < MIN_INPUTS_PER_PIECE (최단 입력만 씀)</li>
+ *   <li>키 입력 수나 입력 요약값이 없음 — 지금 클라이언트는 늘 보내므로, 빠진 결과는 직접 만든 요청이다</li>
  * </ul>
- * 신호가 SOFT_SIGNALS_TO_FLAG 이상이면 봇 쪽이다. 기준값을 실제 사용자 분포로 정하기 전까지는 신호를 기록만 하고
- * 판정에는 쓰지 않는다(app.bot.soft-enforce, 기본 false).
+ * 신호가 SOFT_SIGNALS_TO_FLAG 이상이면 봇 쪽이다(app.bot.soft-enforce, 기본 true).
+ *
+ * <p>2026-11-19 운영 데이터로 다시 정했다: 블록 40개 이상을 놓은 사용자 69명의 최고 초당 블록은 2.48이고, 키 누름 평균의
+ * 사용자별 중앙값은 대부분 77~259ms였다. IMPOSSIBLE을 이긴 봇(경기 2188)은 초당 6.55, 키 누름 평균 18ms였다.
+ * 이 기준을 백업 데이터 전체에 돌리면 새로 걸리는 사람은 그 봇 계정뿐이었다.
  *
  * <p>클라이언트가 보내는 값이라 우회할 수 있다. 콘솔에 붙여 넣는 수준의 봇을 거르는 1차 방어다.
  */
@@ -29,7 +33,7 @@ public final class BotCheck {
     static final double SOFT_PPS = 4.0;
     static final double MIN_INTERVAL_CV = 0.15;
     static final double MIN_HOLD_CV = 0.10;
-    static final double MIN_HOLD_MEAN_MS = 15;
+    static final double MIN_HOLD_MEAN_MS = 50;
     static final double MIN_INPUTS_PER_PIECE = 1.5;
     static final int SOFT_SIGNALS_TO_FLAG = 2;
 
@@ -54,6 +58,7 @@ public final class BotCheck {
         boolean hard = pps > HARD_MAX_PPS || (keyPresses != null && keyPresses < pieces);
         int soft = 0;
         if (pps > SOFT_PPS) soft++;
+        if (stats == null || keyPresses == null) soft++;
         if (stats != null) {
             if (stats.intervalCv() != null && stats.intervalCv() < MIN_INTERVAL_CV) soft++;
             if ((stats.holdCv() != null && stats.holdCv() < MIN_HOLD_CV)
