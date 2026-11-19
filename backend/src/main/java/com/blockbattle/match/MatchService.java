@@ -32,8 +32,16 @@ public class MatchService {
                         Integer attackReceived, Integer maxCombo) {
     }
 
-    public record Saved(long matchId, long userId, String mode, boolean ranked, boolean newBest, int score, boolean botSuspected) {
+    /** botProbation: 이번 판은 정상으로 보이지만, 최근 24시간 안에 같은 계정에서 봇이 탐지되어 기록하지 않았다 */
+    public record Saved(long matchId, long userId, String mode, boolean ranked, boolean newBest, int score, boolean botSuspected,
+                        boolean botProbation) {
     }
+
+    /**
+     * 봇으로 판정되면 그 뒤 24시간 동안 같은 계정의 싱글·vs AI 결과도 기록하지 않는다(유예). 11-19 IMPOSSIBLE을 이긴 봇은
+     * 초당 블록 7 초과로 막힌 2분 뒤 속도만 낮춰 다시 와서 통과했다 — 판정을 피해 기준을 맞춰 보는 것을 막는다.
+     */
+    static final Duration BOT_PROBATION = Duration.ofHours(24);
 
     static final Duration UNSAVED_LIMIT = Duration.ofHours(2);
     private static final Set<String> DIFFICULTIES = Set.of("VERY_EASY", "EASY", "NORMAL", "HARD", "IMPOSSIBLE");
@@ -45,7 +53,7 @@ public class MatchService {
     private final SecureRandom random = new SecureRandom();
 
     public MatchService(MatchRepository matches, UserRepository users, Clock clock,
-                        @Value("${app.bot.soft-enforce:false}") boolean softEnforce) {
+                        @Value("${app.bot.soft-enforce:true}") boolean softEnforce) {
         this.matches = matches;
         this.users = users;
         this.clock = clock;
@@ -81,7 +89,9 @@ public class MatchService {
         Instant now = clock.instant();
         long serverElapsedMs = Duration.between(match.startedAt(), now).toMillis();
         BotCheck.Verdict verdict = BotCheck.judge(p.piecesPlaced(), serverElapsedMs, input.keyPresses(), input.inputStats());
-        boolean bot = verdict.bot(softEnforce);
+        boolean detected = verdict.bot(softEnforce);
+        boolean probation = !detected && matches.hasRecentBotFlag(userId, now.minus(BOT_PROBATION));
+        boolean bot = detected || probation;
         boolean ranked = !bot && ResultLimits.withinLimits(p.score(), p.linesCleared(), p.level(), p.piecesPlaced(), received,
                 p.maxCombo(), input.durationMs(), serverElapsedMs);
         boolean win = "WIN".equals(input.result());
@@ -90,7 +100,7 @@ public class MatchService {
         }
 
         matches.finish(matchId, now, input.durationMs(), ranked, aiMode && win ? userId : null);
-        matches.saveInputStats(matchId, input.keyPresses(), input.inputStats(), verdict);
+        matches.saveInputStats(matchId, input.keyPresses(), input.inputStats(), verdict, detected, probation);
         matches.updatePlayer(matchId, 1, aiMode ? input.result() : "NONE", toRow(p));
         boolean newBest = false;
         if (bot) {
@@ -104,7 +114,7 @@ public class MatchService {
             users.incrementSoloGames(userId, now);
             newBest = ranked && users.raiseSoloBest(userId, p.score(), now);
         }
-        return new Saved(matchId, userId, match.mode(), ranked, newBest, p.score(), bot);
+        return new Saved(matchId, userId, match.mode(), ranked, newBest, p.score(), bot, probation);
     }
 
     /** BR-02: 시작 2시간이 지나도 결과가 없는 SOLO·AI 경기를 ABORTED(EXPIRED)로 닫는다. 전적은 바꾸지 않는다. */

@@ -31,7 +31,8 @@ public class MatchController {
     public record StartResponse(long matchId, long seed, OffsetDateTime startedAt) {
     }
 
-    public record ResultResponse(long matchId, boolean ranked, boolean newBest, Long soloRank, boolean botSuspected) {
+    public record ResultResponse(long matchId, boolean ranked, boolean newBest, Long soloRank, boolean botSuspected,
+                                 boolean botProbation) {
     }
 
     private final MatchService matches;
@@ -58,7 +59,8 @@ public class MatchController {
                                               @RequestBody(required = false) MatchService.ResultInput request) {
         var saved = matches.saveResult(userId, matchId, request);
         Long soloRank = saved.newBest() ? ranking.recordNewBest(saved.userId(), saved.score()) : null;
-        return ApiResponse.ok(new ResultResponse(saved.matchId(), saved.ranked(), saved.newBest(), soloRank, saved.botSuspected()));
+        return ApiResponse.ok(new ResultResponse(saved.matchId(), saved.ranked(), saved.newBest(), soloRank, saved.botSuspected(),
+                saved.botProbation()));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

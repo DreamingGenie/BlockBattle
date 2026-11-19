@@ -157,6 +157,7 @@ REST 응답은 모두 같은 봉투로 감싼다. 성공이면 success = true, e
 
 봇 판정(T-39·T-40): 요청에 선택 필드 `keyPresses`(실제 키 입력 수)와 `inputStats`(`intervalCv`·`holdMeanMs`·`holdCv`·`inputsPerPiece`)를 담을 수 있다.
 놓은 블록이 20개 이상이고 초당 블록 수가 7을 넘거나 키 입력이 놓은 블록보다 적으면 봇 의심이다. 응답 `botSuspected`가 true이고 ranked=false이며 전적·최고 점수·랭킹에 넣지 않는다.
+점수제(2026-11-19부터 기본으로 켬): 초당 블록 4 초과, 키 누름 평균 50ms 미만 또는 변동계수 0.10 미만, 블록 간격 변동계수 0.15 미만, 블록당 키 입력 1.5 미만, `keyPresses`·`inputStats` 없음 중 2개 이상이면 봇 의심이다. 봇으로 판정되면 그 뒤 24시간 동안 같은 계정의 싱글·vs AI 결과도 기록하지 않는다. 이때 응답은 `botSuspected`·`botProbation`이 true다.
 친구 대전도 GAME_OVER 때 같은 바로 차단 조건(서버가 잰 라운드 시간, lock의 선택 필드 `keyPresses`)으로 판정하고, 의심이면 그 라운드를 ranked=false로 두고 양쪽 전적에 넣지 않으며 GAME_OVER에 `botSuspectedUserIds`를 담는다(T-41).
 나머지 신호(초당 4 초과, 간격·키 누름이 일정함, 블록당 입력이 적음)는 개수만 `matches.input_stats`에 기록한다. `app.bot.soft-enforce=true`이면 2개 이상일 때 봇 의심으로 본다(기본 false).
 

@@ -42,7 +42,8 @@ export const APPEAL_EMAIL = 'dreaminggenie@naver.com';
  * 봇 의심 알림(T-39): 서버가 자동 플레이로 판정해 결과를 전적·랭킹에 넣지 않았을 때 결과 팝업 대신 띄운다.
  * 사람이라면 스크린샷·닉네임·유저 코드(태그)·경기 번호를 메일로 보내 소명하게 안내한다.
  */
-export function BotNotice({ matchId, onRetry, extra }: { matchId: number; onRetry?: () => void; extra?: ReactNode }) {
+/** probation: 이번 판은 정상으로 보였지만 최근 24시간 안에 같은 계정에서 봇이 탐지되어 기록하지 않았다 */
+export function BotNotice({ matchId, onRetry, extra, probation = false }: { matchId: number; onRetry?: () => void; extra?: ReactNode; probation?: boolean }) {
   const { me } = useSession();
   const [copied, setCopied] = useState<string | null>(null);
   const who = me ? `${me.nickname}#${me.tag}` : '-';
@@ -63,7 +64,11 @@ export function BotNotice({ matchId, onRetry, extra }: { matchId: number; onRetr
         <div className="bot-badge" aria-hidden="true">!</div>
         <h2 id="bot-title" className="result-title">BOT DETECTED</h2>
         <p className="result-sub">자동 플레이(봇)로 탐지되어 이번 결과는 기록되지 않습니다.</p>
-        <p className="muted small bot-why">사람이 할 수 없는 속도로 블록이 놓였거나, 키 입력 없이 블록이 움직였습니다.</p>
+        <p className="muted small bot-why">
+          {probation
+            ? '최근 24시간 안에 이 계정에서 자동 플레이가 탐지되어, 그동안의 결과는 기록되지 않습니다.'
+            : '사람이 내기 어려운 속도나 기계적인 키 입력이 탐지되었습니다.'}
+        </p>
         <div className="bot-appeal">
           <strong>봇이 아니라면 소명해 주세요</strong>
           <ol>

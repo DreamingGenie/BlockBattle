@@ -273,10 +273,35 @@ class MatchApiTest {
         assertThat(stats.get("softSignals").asInt()).isEqualTo(3);
         assertThat(stats.get("intervalCv").asDouble()).isEqualTo(0.05);
 
-        long solo = startSolo();
-        JsonNode human = data(result(token, solo, SOLO_RESULT.replace("{\"durationMs\"", "{\"keyPresses\":500,\"durationMs\"")));
-        assertThat(human.get("botSuspected").asBoolean()).isFalse();
-        assertThat(human.get("ranked").asBoolean()).isTrue();
+    }
+
+    /**
+     * 봇 판정 뒤 24시간 유예(2026-11-19). 깨지면: 막힌 직후 속도만 낮춰 다시 보내면 통과한다
+     * — 11-19 IMPOSSIBLE을 이긴 봇이 초당 블록 7 초과로 막힌 2분 뒤 6.55로 낮춰 이긴 경로다.
+     */
+    @Test
+    void 봇으로_판정된_계정은_24시간_동안_정상으로_보이는_결과도_기록하지_않는다() throws Exception {
+        long ai = startAi();
+        result(token, ai, """
+                {"result":"LOSE","durationMs":120000,"keyPresses":3,
+                 "inputStats":{"intervalCv":0.05,"holdMeanMs":10,"holdCv":0.02,"inputsPerPiece":0.05},
+                 "player":{"score":3000,"linesCleared":10,"level":2,"piecesPlaced":60,"attackSent":4,"attackReceived":0,"maxCombo":1},
+                 "ai":{"score":100,"linesCleared":0,"level":1,"piecesPlaced":40,"attackSent":0,"attackReceived":4,"maxCombo":0}}""");
+        String human = SOLO_RESULT.replace("{\"durationMs\"", "{\"keyPresses\":500,\"durationMs\"");
+
+        JsonNode next = data(result(token, startSolo(), human));
+        assertThat(next.get("botSuspected").asBoolean()).isTrue();
+        assertThat(next.get("botProbation").asBoolean()).isTrue();
+        assertThat(next.get("ranked").asBoolean()).isFalse();
+        assertThat(jdbc.queryForMap("SELECT solo_games, solo_best_score FROM user_stats WHERE user_id = ?", userId))
+                .containsEntry("solo_games", 0).containsEntry("solo_best_score", 0);
+
+        // 유예로 뺀 판은 다시 유예를 늘리지 않고, 판정된 판이 24시간을 넘기면 풀린다
+        jdbc.update("UPDATE matches SET started_at = ? WHERE id = ?", Timestamp.from(Instant.now().minus(Duration.ofHours(25))), ai);
+        JsonNode later = data(result(token, startSolo(), human));
+        assertThat(later.get("botSuspected").asBoolean()).isFalse();
+        assertThat(later.get("botProbation").asBoolean()).isFalse();
+        assertThat(later.get("ranked").asBoolean()).isTrue();
     }
 
     /** 시작한 뒤 200초 동안 플레이한 것처럼 시작 시각을 당긴다(상한 ⑤: 플레이 시간 184초 ≤ 서버 경과 + 2초) */

@@ -21,6 +21,7 @@ interface Started {
 interface Saved {
   matchId?: number;
   botSuspected?: boolean;
+  botProbation?: boolean;
   ranked: boolean;
   newBest: boolean;
   soloRank: number | null;
@@ -182,7 +183,7 @@ export function SoloScreen() {
         </aside>
       </section>
       {phase === 'result' && saved?.botSuspected && (
-        <BotNotice matchId={saved.matchId ?? match.current?.matchId ?? 0} onRetry={() => setRound((r) => r + 1)} />
+        <BotNotice matchId={saved.matchId ?? match.current?.matchId ?? 0} probation={saved.botProbation === true} onRetry={() => setRound((r) => r + 1)} />
       )}
       {phase === 'result' && saved && !saved.botSuspected && (
         <ResultModal tone={saved.newBest ? 'win' : 'over'} title={saved.newBest ? 'NEW RECORD' : 'GAME OVER'}>
