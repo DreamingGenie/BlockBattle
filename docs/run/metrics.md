@@ -3,7 +3,7 @@
 > **커밋 해시 주의(2026-11-19 덧붙임)**: 이 문서와 `run-log.md`의 해시는 11-14 18:57 이력 재작성 **전** 해시다(로컬 브랜치 `main-before-rewrite`에만 있고 GitHub에는 없다). 재작성은 트레일러를 지우고 커밋 시각을 BEEZ 완료 보고 시각으로 맞췄으며, 코드 트리는 같다. 자주 나오는 것: `fdf60cd`→`7b2f1d1`(T-17 부하) · `08b2c20`→`01e7509`(T-22) · `d4ee153`→`fd544c1`(T-24 AI 속도) · `cdc233c`→`244a1f0`(T-26) · `dd958ea`→`e15d2b1`(T-27). 계산 스크립트가 있던 세션 스크래치 폴더는 남아 있지 않을 수 있다.
 
 작성 2026-11-14. 자료: `docs/run/run-log.md`(아래 "일지 N행"은 그 파일의 줄 번호), `git log`(main, 커밋 28개), Claude Code 세션 JSONL.
-계산 스크립트·중간 결과는 `C:/Users/SSAFY/AppData/Local/Temp/claude/c8cfb0b7886f5350/979e63d4-78cc-4235-bcd4-db0b5eeb1b61/scratchpad/metrics/`(extract.py·analyze.py·tokens.py·numstat.py).
+계산 스크립트·중간 결과는 그때 세션의 임시 폴더에 두었고(extract.py·analyze.py·tokens.py·numstat.py) 저장소에는 없다.
 
 측정 범위: **T0 = 2026-11-13 08:55:08**(일지 8행) ~ **끝 = 2026-11-14 15:40:59**(T-26 완료, 일지 92행 · 커밋 `cdc233c` 15:39:59).
 11-10 커밋 `c7e7f2b`(저장소 초기화)와 세션 `2e7c803a`(11-10 16:58~17:01)는 범위 밖이다.

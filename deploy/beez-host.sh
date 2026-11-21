@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BEEZ 서버(dev.beez.ai.kr)의 /tetris 아래에 블록 배틀을 임시로 함께 올리고 내린다(2026-11-19 ~ 11-20).
+# BEEZ 서버(dev.beez.ai.kr)의 /tetris 아래에 블록 배틀을 임시로 함께 올리고 내린다(2026-11-19 ~ 11-21, 11-21에 purge로 내림).
 # BEEZ 컨테이너·설정은 건드리지 않는다. 블록 배틀은 별도 compose 프로젝트(block-battle)로 127.0.0.1:18080·18000에만 열고,
 # 호스트 nginx의 dev.beez.ai.kr 443 server 블록에 include 한 줄(snippets/tetris-locations.conf)과 conf.d/tetris-limits.conf만 더한다.
 #
