@@ -35,8 +35,10 @@ services:
     restart: unless-stopped
     mem_limit: 384m
     logging: *default-logging
-    # 메모리 상한(T-34, 보안 점검 H-3): 모든 키에 TTL이 있어(방 30분·Refresh 7일) volatile-lru가 맞다.
+    # 메모리 상한(T-34, 보안 점검 H-3): 늘어나는 키(방 30분·경기 상태 2시간·Refresh 7일)는 TTL이 있어 volatile-lru가 맞다.
     # 진행 중인 방 키는 lock마다 읽혀 가장 늦게 지워지고, 오래 안 쓴 Refresh·쉬는 방 키부터 지워진다.
+    # TTL이 없는 키는 랭킹 캐시(ranking:solo·ranking:solo:seq)와 접속 인원(presence:*)뿐이고 volatile-lru는 이 키들을 지우지 않는다.
+    # 둘 다 회원 수만큼만 커지며, 랭킹 캐시는 비어 있으면 MySQL user_stats에서 다시 채운다.
     # noeviction은 상한에서 모든 쓰기를 거부해 진행 중 경기의 lock까지 실패하므로 쓰지 않는다.
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
     volumes:
