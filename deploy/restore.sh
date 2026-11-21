@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/backup.sh로 받은 백업을 새 서버에 되살린다. 새 서버는 README "배포"의 1번(서버 만들기)까지 해 둔 상태여야 한다.
+# deploy/backup.sh로 받은 백업을 새 서버에 되살린다. 새 서버는 docs/deploy.md의 1번(서버 만들기)까지 해 둔 상태여야 한다.
 # 하는 일: 백업의 비밀값(.env)을 새 주소로 바꿔 먼저 올림 → deploy.sh로 빌드·기동(빈 DB에 Flyway 적용)
 #        → backend를 잠깐 멈추고 MySQL 덤프를 덮어씀 → backend 다시 켜고 행 수를 백업 때와 대조
 # Redis(방·Refresh 토큰)는 되살리지 않는다. 주소가 바뀌면 브라우저 쿠키가 따라오지 않아 쓸모가 없고 TTL이 있는 값이다.
