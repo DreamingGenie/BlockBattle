@@ -1,6 +1,6 @@
 # BEEZ 서버(dev.beez.ai.kr)의 /tetris 아래에 임시로 함께 올릴 때(2026-11-19 ~ 11-20) deploy/docker-compose.yml 위에 겹친다.
 # nginx 서비스는 띄우지 않고 BEEZ 호스트 nginx가 받는다. backend·ai는 이 서버 안(127.0.0.1)에서만 열고,
-# 포트는 BEEZ가 쓰는 8080(Jenkins)·8081(BEEZ backend)·3000·9090과 겹치지 않게 18080·18000이다.
+# 포트는 호스트의 다른 서비스가 쓰는 것과 겹치지 않게 18080·18000이다.
 services:
   backend:
     ports:
