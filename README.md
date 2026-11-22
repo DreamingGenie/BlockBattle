@@ -136,7 +136,14 @@ cd frontend && npm install && npm run dev
 
 브라우저에서 http://localhost:5173 을 연다. 친구 대전은 방장이 받은 초대 링크(`http://localhost:5173/room/{코드}`)나 코드로 다른 사용자가 들어온다. 같은 브라우저로 두 사람을 시험하려면 시크릿 창처럼 쿠키가 따로인 창을 쓴다.
 
-환경 변수(선택): `JWT_SECRET`(백엔드·AI가 같은 값), `PUBLIC_BASE_URL`(초대 링크 주소, 기본 `http://localhost:5173`), 프론트 프록시 대상 `BACKEND_URL`·`AI_URL`, AI 동시 계산 상한 `AI_MAX_CONCURRENT`(기본 2, 넘으면 503 `AI_BUSY`). `JWT_SECRET`이 없으면 저장소에 공개된 개발용 키를 쓰는데, 백엔드는 `PUBLIC_BASE_URL`이 localhost가 아니면 이 키로 기동하지 않는다.
+환경 변수는 모두 선택이다.
+
+| 이름 | 쓰임 |
+| --- | --- |
+| `JWT_SECRET` | 백엔드와 AI 서버가 같은 값을 쓴다. 없으면 저장소에 공개된 개발용 키를 쓰는데, 백엔드는 `PUBLIC_BASE_URL`이 localhost가 아니면 이 키로 기동하지 않는다 |
+| `PUBLIC_BASE_URL` | 초대 링크 주소. 기본 `http://localhost:5173` |
+| `BACKEND_URL` · `AI_URL` | 프론트 개발 서버의 프록시 대상 |
+| `AI_MAX_CONCURRENT` | AI 동시 계산 상한. 기본 2, 넘으면 503 `AI_BUSY` |
 
 ## 테스트
 
