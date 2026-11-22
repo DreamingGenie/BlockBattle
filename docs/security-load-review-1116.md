@@ -83,7 +83,7 @@
   - H-1과 결합하면 랭킹 도배, M-1과 결합하면 AI CPU 고갈로 이어진다.
 - **고치는 방향**
   - nginx에 `limit_req_zone $binary_remote_addr`를 둔다. `/api/v1/auth/`(예: 분당 10회), `/api/v1/rooms`·`/api/v1/matches` 생성, `/ai/`를 따로 제한한다. `/ws`에는 `limit_conn`을 둔다.
-  - Redis에 `--maxmemory 256mb --maxmemory-policy volatile-lru`를 둔다. 모든 키에 TTL이 있으므로 volatile 정책이 맞다(`RedisKeys.java:12-18`).
+  - Redis에 `--maxmemory 256mb --maxmemory-policy volatile-lru`를 둔다. 다만 `ranking:solo`·`ranking:solo:seq`·`presence:*`에는 TTL이 없어서, volatile-lru에서는 이 키들이 메모리가 차도 밀려나지 않는다(`RedisKeys.java:12-18`). (2026-11-22 정정 — 처음 판의 TTL 설명이 틀렸다.)
   - 서비스별 `mem_limit`·`cpus`, json-file 로그 회전(`max-size: 10m`, `max-file: "3"`)을 둔다.
   - 오래된 게스트 계정 정리 배치를 둘지 검토한다.
 - **규모**: 작음(nginx·compose)~중간(정리 배치)
