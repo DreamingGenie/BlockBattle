@@ -1,4 +1,4 @@
-# 백엔드·프론트·AI 시험을 main으로 가는 push·PR마다 돌린다(README "시험"과 같은 명령).
+# 백엔드·프론트·AI 시험을 main으로 가는 push·PR마다 돌린다(README "테스트"와 같은 명령).
 name: ci
 
 on:
